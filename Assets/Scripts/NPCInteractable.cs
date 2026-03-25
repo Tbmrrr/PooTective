@@ -7,16 +7,18 @@ public class NPCInteractable : MonoBehaviour
     public TextAsset dialogueFile;
     public string npcDisplayName = "狒狒";
 
-    [Header("2D UI提示面板 (屏幕常态UI)")]
-    public GameObject promptPanel;
-    public Text promptText; // 指向显示“按E对话”的那个Text组件
+    // --- 修改部分：从常态UI改为世界空间提示物体 ---
+    [Header("世界空间 (World Space) 提示物体")]
+    [Tooltip("拖入NPC头顶/身边的 Canvas 物体 (确保其 Render Mode 为 World Space)")]
+    public GameObject worldPromptObject; // 拖入 NPC 子层级下的 Canvas 物体
 
     private string[] dialogueLines;
     private bool isFinished = false; // 记录该NPC对话是否已完成
 
     void Start()
     {
-        if (promptPanel != null) promptPanel.SetActive(false);
+        // 初始隐藏世界空间提示
+        if (worldPromptObject != null) worldPromptObject.SetActive(false);
 
         if (dialogueFile != null)
         {
@@ -26,14 +28,13 @@ public class NPCInteractable : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        // 只有没完成过对话，且当前没在对话中，才显示提示
+        // 只有没完成过对话，且当前没在对话中，且物体 Tag 正确，才显示提示
         if (!isFinished && other.CompareTag("Player") && !DialogueManager.Instance.isDialogueActive)
         {
-            if (promptPanel != null)
+            if (worldPromptObject != null)
             {
-                promptPanel.SetActive(true);
-                // 修复问题1：这里显示“按E对话”，或者你想显示“[狒狒] 按E对话”
-                if (promptText != null) promptText.text = "[" + npcDisplayName + "] 按E对话";
+                // 显示 NPC 身边的图片物体
+                worldPromptObject.SetActive(true);
             }
         }
     }
@@ -42,16 +43,21 @@ public class NPCInteractable : MonoBehaviour
     {
         if (other.CompareTag("Player"))
         {
-            if (promptPanel != null) promptPanel.SetActive(false);
-            // 如果还没聊完就走开了，不标记为完成，下次回来还能聊
+            if (worldPromptObject != null)
+            {
+                // 隐藏 NPC 身边的图片物体
+                worldPromptObject.SetActive(false);
+            }
         }
     }
 
     public void OnInteract()
     {
+        // 冲突检查：如果对话已完成，或者其他对话正在进行，则不响应
         if (isFinished || DialogueManager.Instance.isDialogueActive) return;
 
-        if (promptPanel != null) promptPanel.SetActive(false);
+        // 交互开始，立即隐藏提示图片
+        if (worldPromptObject != null) worldPromptObject.SetActive(false);
 
         // 开启对话，并告诉管理器：如果聊完了，记得回调我的 OnDialogueComplete 函数
         DialogueManager.Instance.StartDialogue(dialogueLines, this);
@@ -61,7 +67,8 @@ public class NPCInteractable : MonoBehaviour
     public void OnDialogueComplete()
     {
         isFinished = true; // 标记为已完成
-        if (promptPanel != null) promptPanel.SetActive(false);
-        Debug.Log(npcDisplayName + " 的对话已终结，不再触发。");
+        // 确保彻底隐藏
+        if (worldPromptObject != null) worldPromptObject.SetActive(false);
+        Debug.Log(npcDisplayName + " 的对话已终结，不再触发提示。");
     }
 }
