@@ -11,6 +11,7 @@ public class DialogueManager : MonoBehaviour
     public GameObject dialogueBox;
     public Text nameText;
     public Text dialogueText;
+    public GameObject continueIcon; // <--- 新增：拖入你的“继续”小图标
 
     [Header("打字机设置")]
     public float typeSpeed = 0.05f;
@@ -23,13 +24,15 @@ public class DialogueManager : MonoBehaviour
     private bool cancelTyping = false;
     public bool isDialogueActive = false;
 
-    private NPCInteractable activeNPC; // 记录当前正在对话的NPC
+    private NPCInteractable activeNPC;
 
     private void Awake()
     {
         if (Instance == null) Instance = this;
         else Destroy(gameObject);
+
         dialogueBox.SetActive(false);
+        if (continueIcon != null) continueIcon.SetActive(false); // 初始隐藏图标
     }
 
     void Update()
@@ -47,7 +50,6 @@ public class DialogueManager : MonoBehaviour
         }
     }
 
-    // 增加了参数接收当前的NPC
     public void StartDialogue(string[] lines, NPCInteractable npc)
     {
         activeNPC = npc;
@@ -66,7 +68,9 @@ public class DialogueManager : MonoBehaviour
 
     public void DisplayNextSentence()
     {
-        // 修复问题2：如果队列空了，直接结束
+        // 只要准备显示下一句，就先隐藏图标
+        if (continueIcon != null) continueIcon.SetActive(false);
+
         if (sentences.Count == 0)
         {
             EndDialogue();
@@ -117,14 +121,17 @@ public class DialogueManager : MonoBehaviour
 
         isTyping = false;
         cancelTyping = false;
+
+        // --- 核心改动：文字显示完了，把图标变出来 ---
+        if (continueIcon != null) continueIcon.SetActive(true);
     }
 
     public void EndDialogue()
     {
         isDialogueActive = false;
         dialogueBox.SetActive(false);
+        if (continueIcon != null) continueIcon.SetActive(false); // 对话结束彻底隐藏
 
-        // 告诉NPC：对话彻底结束了，你可以把自己“禁用”了
         if (activeNPC != null)
         {
             activeNPC.OnDialogueComplete();

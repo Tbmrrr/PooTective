@@ -6,6 +6,8 @@ public class LockedPitchThirdPersonController : MonoBehaviour
     [Header("组件引用")]
     public Transform playerCamera;
     private CharacterController controller;
+    // --- 额外增加的变量，不影响原有引用 ---
+    private Animator anim;
 
     [Header("移动设置")]
     public float moveSpeed = 6.0f;
@@ -25,6 +27,9 @@ public class LockedPitchThirdPersonController : MonoBehaviour
     void Start()
     {
         controller = GetComponent<CharacterController>();
+        // --- 仅在此处增加获取子物体动画组件的代码 ---
+        anim = GetComponentInChildren<Animator>();
+
         if (playerCamera == null) playerCamera = Camera.main.transform;
 
         // 【核心：记录启动时的“黄金比例”】
@@ -114,5 +119,12 @@ public class LockedPitchThirdPersonController : MonoBehaviour
         finalMove.y = verticalVelocity;
 
         controller.Move(finalMove * Time.deltaTime);
+
+        // --- 额外增加的动画状态检测，放在函数最后，不干扰位移逻辑 ---
+        if (anim != null)
+        {
+            // 直接复用你原有的移动判断阈值 0.1f
+            anim.SetBool("isWalking", inputDir.magnitude >= 0.1f);
+        }
     }
 }
