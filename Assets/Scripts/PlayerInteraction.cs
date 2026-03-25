@@ -2,50 +2,78 @@ using UnityEngine;
 
 public class PlayerInteraction : MonoBehaviour
 {
-    [Header("交互设置")]
-    public KeyCode interactKey = KeyCode.E;
+    [Header("按键设置")]
+    public KeyCode npcKey = KeyCode.E;
+    public KeyCode pooKey = KeyCode.R; // 新增：Poo 的交互按键
 
-    // 内部记录当前靠近的那个NPC
+    // 内部记录当前靠近的对象
     private NPCInteractable currentNPC;
+    private PooInteractable currentPoo; // 新增：记录当前的 Poo
 
     void Update()
     {
-        // 核心逻辑：只有在【对话管理器】没开启对话时，才允许按E开始对话
+        // 1. NPC 交互逻辑 (按 E)
         if (DialogueManager.Instance != null && !DialogueManager.Instance.isDialogueActive)
         {
-            if (currentNPC != null && Input.GetKeyDown(interactKey))
+            if (currentNPC != null && Input.GetKeyDown(npcKey))
             {
-                // 触发NPC的交互函数
                 currentNPC.OnInteract();
             }
         }
 
-        // 注意：对话开启后的 E 键逻辑（翻页/跳过）由 DialogueManager 独立处理
+        // 2. 重建模式与 Poo 交互 (R)
+        if (Input.GetKeyDown(pooKey))
+        {
+            // 情况 A：已经解锁了模式，随时可以开关 (不依赖 Focus 模式或靠近 Poo)
+            if (RebuildModeManager.Instance != null && RebuildModeManager.Instance.hasUnlockedRebuild)
+            {
+                RebuildModeManager.Instance.ToggleRebuildMode();
+            }
+            // 情况 B：还没解锁，必须在 Focus 模式下靠近 Poo 才能按 R
+            else if (FocusModeManager.Instance != null && FocusModeManager.Instance.isFocusModeActive)
+            {
+                if (currentPoo != null)
+                {
+                    currentPoo.OnPooInteract();
+                }
+            }
+        }
     }
 
     // --- 触发器检测 ---
 
     private void OnTriggerEnter(Collider other)
     {
-        // 获取碰撞体身上的 NPCInteractable 组件
+        // 检测 NPC
         NPCInteractable npc = other.GetComponent<NPCInteractable>();
-
         if (npc != null)
         {
             currentNPC = npc;
-            // 修正后的变量名：npcDisplayName
-            Debug.Log("靠近了 NPC: " + npc.npcDisplayName);
+            return;
+        }
+
+        // 检测 Poo
+        PooInteractable poo = other.GetComponent<PooInteractable>();
+        if (poo != null)
+        {
+            currentPoo = poo;
         }
     }
 
     private void OnTriggerExit(Collider other)
     {
+        // 离开 NPC
         NPCInteractable npc = other.GetComponent<NPCInteractable>();
-
         if (npc != null && npc == currentNPC)
         {
             currentNPC = null;
-            Debug.Log("离开了 NPC");
+        }
+
+        // 离开 Poo
+        PooInteractable poo = other.GetComponent<PooInteractable>();
+        if (poo != null && poo == currentPoo)
+        {
+            currentPoo = null;
         }
     }
 }
