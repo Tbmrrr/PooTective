@@ -48,6 +48,11 @@ public class LockedPitchThirdPersonController : MonoBehaviour
 
     void Update()
     {
+        // --- 暴力截断：如果 R 模式开启，直接跳过这一帧的所有逻辑 ---
+        if (RebuildModeManager.Instance != null && RebuildModeManager.Instance.isRebuildModeActive)
+        {
+            return;
+        }
         HandleCamera();
         HandleMovement();
     }
