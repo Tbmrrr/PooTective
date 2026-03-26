@@ -25,7 +25,7 @@ public class NPCInteractable : MonoBehaviour
 
     private string[] normalDialogueLines;
     private bool isWaitingForChoice = false;
-    private bool isDialogueJustFinished = false; // 👆 新增：防止连续触发的锁
+    private bool isDialogueJustFinished = false;
 
     private string pendingUpdateID;
     private string pendingUpdateDesc;
@@ -43,7 +43,6 @@ public class NPCInteractable : MonoBehaviour
 
     void Update()
     {
-        // 只有在等待选择时才监听 1 和 2
         if (isWaitingForChoice)
         {
             if (Input.GetKeyDown(KeyCode.Alpha1)) OnChoiceSelected(1);
@@ -55,7 +54,6 @@ public class NPCInteractable : MonoBehaviour
     {
         if (other.CompareTag("Player") && !DialogueManager.Instance.isDialogueActive)
         {
-            // 只有在没有对话、没有在选、且没有刚结束对话时才显示“按E”
             if (!isWaitingForChoice && !isDialogueJustFinished && pressEPrompt != null)
                 pressEPrompt.SetActive(true);
         }
@@ -71,7 +69,6 @@ public class NPCInteractable : MonoBehaviour
 
     public void OnInteract()
     {
-        // 核心修复：如果对话正在进行，或者刚刚结束（锁还没开），直接拦截
         if (DialogueManager.Instance.isDialogueActive || isWaitingForChoice || isDialogueJustFinished) return;
 
         if (pressEPrompt != null) pressEPrompt.SetActive(false);
@@ -127,37 +124,31 @@ public class NPCInteractable : MonoBehaviour
         DialogueManager.Instance.StartDialogue(defaultWrongResponse, this);
     }
 
-    // --- 当对话框消失时回调 ---
     public void OnDialogueComplete()
     {
-        // 1. 立即清理所有 UI
         isWaitingForChoice = false;
         if (optionsMenu != null) optionsMenu.SetActive(false);
         if (pressEPrompt != null) pressEPrompt.SetActive(false);
 
-        // 2. 开启“防止误触发”锁
         isDialogueJustFinished = true;
 
-        // 3. 恢复玩家移动
         SetPlayerMovement(true);
 
-        // 4. 处理数据更新
-        if (!string.IsNullOrEmpty(pendingUpdateID))
+        // ✅ 修复：同时判断 ID 和描述都不为空，留空 updatedDescription 则不做任何更新
+        if (!string.IsNullOrEmpty(pendingUpdateID) && !string.IsNullOrEmpty(pendingUpdateDesc))
         {
             NoteManager.Instance.UpdateEvidenceInfo(pendingUpdateID, pendingUpdateDesc);
-            pendingUpdateID = null;
-            pendingUpdateDesc = null;
         }
+        // 无论是否更新，都清空暂存数据
+        pendingUpdateID = null;
+        pendingUpdateDesc = null;
 
-        // 5. 延迟一小段时间后解锁，让系统有时间处理按键释放
         Invoke("ReleaseDialogueLock", 0.5f);
     }
 
     private void ReleaseDialogueLock()
     {
         isDialogueJustFinished = false;
-        // 如果玩家还在范围内，重新显示“按E”
-        // 这里可以根据实际需要决定是否重新显示
     }
 
     private void ResetInteraction()
@@ -171,7 +162,6 @@ public class NPCInteractable : MonoBehaviour
 
     private void SetPlayerMovement(bool canMove)
     {
-        // 实际对接你的玩家控制脚本
         Debug.Log(canMove ? "解锁移动" : "锁定移动并开启 1/2 选项");
     }
 }

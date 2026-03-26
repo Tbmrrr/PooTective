@@ -33,11 +33,17 @@ public class NoteManager : MonoBehaviour
     private NPCInteractable activeNPC;
 
     [Header("角色档案数据")]
-    [Tooltip("在这里手动添加角色信息，游戏开始就会显示")]
+    [Tooltip("在这里手动添加角色信息，只有解锁员工名单后才会显示")]
     public List<EvidenceData> characterFiles = new List<EvidenceData>();
 
     private List<EvidenceData> collectedEvidence = new List<EvidenceData>();
     private EvidenceData selectedData;
+
+    // ✅ 新增：控制角色档案页签是否解锁
+    private bool isStaffFilesUnlocked = false;
+
+    // ✅ 记录"刚更新过、还未被玩家查看"的证物 ID
+    private HashSet<string> pendingUpdateIDs = new HashSet<string>();
 
     [System.Serializable]
     public struct EvidenceData
@@ -75,6 +81,13 @@ public class NoteManager : MonoBehaviour
         {
             ToggleNote();
         }
+    }
+
+    // ✅ 新增：供 StaffList 脚本调用，解锁所有员工档案
+    public void UnlockStaffFiles()
+    {
+        isStaffFilesUnlocked = true;
+        Debug.Log("所有员工档案已解锁！");
     }
 
     public void EnterPresentMode(NPCInteractable npc)
@@ -116,7 +129,9 @@ public class NoteManager : MonoBehaviour
 
         if (isActive)
         {
-            // 打开笔记本时：所有底层 UI 全部关闭
+            // ✅ 核心修改：每次打开时，强制重置为证物栏目
+            currentTab = NoteTab.Evidence;
+
             if (normal2DUI != null) normal2DUI.SetActive(false);
             if (RebuildModeManager.Instance != null && RebuildModeManager.Instance.rebuildModePanel != null)
             {
@@ -130,7 +145,6 @@ public class NoteManager : MonoBehaviour
         }
         else
         {
-            // 关闭笔记本时：判断当前到底在哪个模式
             activeNPC = null;
             if (presentSubmitBtn != null) presentSubmitBtn.gameObject.SetActive(false);
 
@@ -140,7 +154,6 @@ public class NoteManager : MonoBehaviour
 
             if (RebuildModeManager.Instance != null && RebuildModeManager.Instance.isRebuildModeActive)
             {
-                // 如果在重建模式：只开重建模式 UI，确保正常 UI 保持关闭
                 if (normal2DUI != null) normal2DUI.SetActive(false);
                 if (RebuildModeManager.Instance.rebuildModePanel != null)
                 {
@@ -149,7 +162,6 @@ public class NoteManager : MonoBehaviour
             }
             else
             {
-                // 如果在普通模式：开启正常 UI，关闭重建模式 UI
                 if (normal2DUI != null) normal2DUI.SetActive(true);
                 if (RebuildModeManager.Instance != null && RebuildModeManager.Instance.rebuildModePanel != null)
                 {
@@ -167,6 +179,13 @@ public class NoteManager : MonoBehaviour
     void RefreshList()
     {
         foreach (Transform child in listParent) Destroy(child.gameObject);
+
+        // ✅ 核心修改：如果是角色页签且未解锁，则不显示任何列表项
+        if (currentTab == NoteTab.Character && !isStaffFilesUnlocked)
+        {
+            Debug.Log("员工档案尚未解锁，列表不显示。");
+            return;
+        }
 
         List<EvidenceData> targetData = (currentTab == NoteTab.Evidence) ? collectedEvidence : characterFiles;
 
@@ -204,7 +223,16 @@ public class NoteManager : MonoBehaviour
 
         if (detailImage != null) detailImage.sprite = data.fullImage;
         if (detailName != null) detailName.text = data.name;
-        if (detailDesc != null) detailDesc.text = data.desc;
+
+        if (pendingUpdateIDs.Contains(data.evidenceID))
+        {
+            if (detailDesc != null) detailDesc.text = "【线索更新】\n" + data.desc;
+            pendingUpdateIDs.Remove(data.evidenceID);
+        }
+        else
+        {
+            if (detailDesc != null) detailDesc.text = data.desc;
+        }
 
         if (activeNPC != null && currentTab == NoteTab.Evidence)
         {
@@ -216,7 +244,6 @@ public class NoteManager : MonoBehaviour
         }
     }
 
-    // ✅ 修复：在调用 ToggleNote() 之前，先将 activeNPC 缓存到局部变量
     private void OnSubmitToNPC()
     {
         if (activeNPC == null || string.IsNullOrEmpty(selectedData.evidenceID))
@@ -226,13 +253,13 @@ public class NoteManager : MonoBehaviour
         }
 
         string idToSubmit = selectedData.evidenceID;
-        NPCInteractable npcToNotify = activeNPC; // ✅ 关键修复：关闭背包前先缓存引用
+        NPCInteractable npcToNotify = activeNPC;
 
         Debug.Log("正在向 " + npcToNotify.npcDisplayName + " 提交证物: " + idToSubmit);
 
-        ToggleNote(); // 此处会执行 activeNPC = null，但我们已经安全保存了引用
+        ToggleNote();
 
-        npcToNotify.ReceiveEvidence(idToSubmit); // ✅ 使用缓存的引用，不会报错
+        npcToNotify.ReceiveEvidence(idToSubmit);
     }
 
     public void UpdateEvidenceInfo(string id, string newDesc)
@@ -242,8 +269,10 @@ public class NoteManager : MonoBehaviour
             if (collectedEvidence[i].evidenceID == id)
             {
                 EvidenceData updatedData = collectedEvidence[i];
-                updatedData.desc = "【线索更新】\n" + newDesc;
+                updatedData.desc = newDesc;
                 collectedEvidence[i] = updatedData;
+
+                pendingUpdateIDs.Add(id);
                 Debug.Log("证物信息已更新: " + id);
                 break;
             }

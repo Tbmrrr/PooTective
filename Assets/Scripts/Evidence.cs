@@ -30,7 +30,7 @@ public class Evidence : MonoBehaviour
         if (interactPrompt != null) interactPrompt.SetActive(false);
     }
 
-    public void OnInteract()
+    public virtual void OnInteract()
     {
         // 1. 拦截已调查的情况
         if (hasInteracted)
