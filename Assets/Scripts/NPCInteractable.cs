@@ -1,41 +1,63 @@
 using UnityEngine;
-using UnityEngine.UI;
+using System.Collections.Generic;
+
+[System.Serializable]
+public struct EvidenceMapping
+{
+    public string evidenceID;
+    [TextArea(5, 10)] public string[] responseDialogue;
+    public string updatedDescription;
+}
 
 public class NPCInteractable : MonoBehaviour
 {
-    [Header("配置")]
+    [Header("基础配置")]
     public TextAsset dialogueFile;
-    public string npcDisplayName = "狒狒";
+    public string npcDisplayName = "NPC";
 
-    // --- 修改部分：从常态UI改为世界空间提示物体 ---
-    [Header("世界空间 (World Space) 提示物体")]
-    [Tooltip("拖入NPC头顶/身边的 Canvas 物体 (确保其 Render Mode 为 World Space)")]
-    public GameObject worldPromptObject; // 拖入 NPC 子层级下的 Canvas 物体
+    [Header("世界空间提示 (World Space UI)")]
+    public GameObject pressEPrompt;
+    public GameObject optionsMenu;
 
-    private string[] dialogueLines;
-    private bool isFinished = false; // 记录该NPC对话是否已完成
+    [Header("证物系统配置")]
+    public List<EvidenceMapping> evidenceResponses;
+    [TextArea(2, 3)] public string[] defaultWrongResponse = { "证人：我不认识这个东西。" };
+
+    private string[] normalDialogueLines;
+    private bool isWaitingForChoice = false;
+    private bool isDialogueJustFinished = false; // 👆 新增：防止连续触发的锁
+
+    private string pendingUpdateID;
+    private string pendingUpdateDesc;
 
     void Start()
     {
-        // 初始隐藏世界空间提示
-        if (worldPromptObject != null) worldPromptObject.SetActive(false);
+        if (pressEPrompt != null) pressEPrompt.SetActive(false);
+        if (optionsMenu != null) optionsMenu.SetActive(false);
 
         if (dialogueFile != null)
         {
-            dialogueLines = dialogueFile.text.Split(new[] { '\r', '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
+            normalDialogueLines = dialogueFile.text.Split(new[] { '\r', '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
+        }
+    }
+
+    void Update()
+    {
+        // 只有在等待选择时才监听 1 和 2
+        if (isWaitingForChoice)
+        {
+            if (Input.GetKeyDown(KeyCode.Alpha1)) OnChoiceSelected(1);
+            else if (Input.GetKeyDown(KeyCode.Alpha2)) OnChoiceSelected(2);
         }
     }
 
     private void OnTriggerEnter(Collider other)
     {
-        // 只有没完成过对话，且当前没在对话中，且物体 Tag 正确，才显示提示
-        if (!isFinished && other.CompareTag("Player") && !DialogueManager.Instance.isDialogueActive)
+        if (other.CompareTag("Player") && !DialogueManager.Instance.isDialogueActive)
         {
-            if (worldPromptObject != null)
-            {
-                // 显示 NPC 身边的图片物体
-                worldPromptObject.SetActive(true);
-            }
+            // 只有在没有对话、没有在选、且没有刚结束对话时才显示“按E”
+            if (!isWaitingForChoice && !isDialogueJustFinished && pressEPrompt != null)
+                pressEPrompt.SetActive(true);
         }
     }
 
@@ -43,32 +65,113 @@ public class NPCInteractable : MonoBehaviour
     {
         if (other.CompareTag("Player"))
         {
-            if (worldPromptObject != null)
-            {
-                // 隐藏 NPC 身边的图片物体
-                worldPromptObject.SetActive(false);
-            }
+            ResetInteraction();
         }
     }
 
     public void OnInteract()
     {
-        // 冲突检查：如果对话已完成，或者其他对话正在进行，则不响应
-        if (isFinished || DialogueManager.Instance.isDialogueActive) return;
+        // 核心修复：如果对话正在进行，或者刚刚结束（锁还没开），直接拦截
+        if (DialogueManager.Instance.isDialogueActive || isWaitingForChoice || isDialogueJustFinished) return;
 
-        // 交互开始，立即隐藏提示图片
-        if (worldPromptObject != null) worldPromptObject.SetActive(false);
+        if (pressEPrompt != null) pressEPrompt.SetActive(false);
+        if (optionsMenu != null) optionsMenu.SetActive(true);
 
-        // 开启对话，并告诉管理器：如果聊完了，记得回调我的 OnDialogueComplete 函数
-        DialogueManager.Instance.StartDialogue(dialogueLines, this);
+        SetPlayerMovement(false);
+        isWaitingForChoice = true;
     }
 
-    // 当对话真正结束时，由 DialogueManager 调用这个方法
+    private void OnChoiceSelected(int choice)
+    {
+        isWaitingForChoice = false;
+        if (optionsMenu != null) optionsMenu.SetActive(false);
+
+        if (choice == 1) StartNormalQuestion();
+        else if (choice == 2) OpenEvidenceToPresent();
+    }
+
+    public void StartNormalQuestion()
+    {
+        if (normalDialogueLines != null && normalDialogueLines.Length > 0)
+        {
+            DialogueManager.Instance.StartDialogue(normalDialogueLines, this);
+        }
+        else
+        {
+            OnDialogueComplete();
+        }
+    }
+
+    public void OpenEvidenceToPresent()
+    {
+        if (NoteManager.Instance != null)
+        {
+            NoteManager.Instance.EnterPresentMode(this);
+        }
+    }
+
+    public void ReceiveEvidence(string evidenceID)
+    {
+        if (optionsMenu != null) optionsMenu.SetActive(false);
+
+        foreach (var mapping in evidenceResponses)
+        {
+            if (mapping.evidenceID == evidenceID)
+            {
+                pendingUpdateID = evidenceID;
+                pendingUpdateDesc = mapping.updatedDescription;
+                DialogueManager.Instance.StartDialogue(mapping.responseDialogue, this);
+                return;
+            }
+        }
+        DialogueManager.Instance.StartDialogue(defaultWrongResponse, this);
+    }
+
+    // --- 当对话框消失时回调 ---
     public void OnDialogueComplete()
     {
-        isFinished = true; // 标记为已完成
-        // 确保彻底隐藏
-        if (worldPromptObject != null) worldPromptObject.SetActive(false);
-        Debug.Log(npcDisplayName + " 的对话已终结，不再触发提示。");
+        // 1. 立即清理所有 UI
+        isWaitingForChoice = false;
+        if (optionsMenu != null) optionsMenu.SetActive(false);
+        if (pressEPrompt != null) pressEPrompt.SetActive(false);
+
+        // 2. 开启“防止误触发”锁
+        isDialogueJustFinished = true;
+
+        // 3. 恢复玩家移动
+        SetPlayerMovement(true);
+
+        // 4. 处理数据更新
+        if (!string.IsNullOrEmpty(pendingUpdateID))
+        {
+            NoteManager.Instance.UpdateEvidenceInfo(pendingUpdateID, pendingUpdateDesc);
+            pendingUpdateID = null;
+            pendingUpdateDesc = null;
+        }
+
+        // 5. 延迟一小段时间后解锁，让系统有时间处理按键释放
+        Invoke("ReleaseDialogueLock", 0.5f);
+    }
+
+    private void ReleaseDialogueLock()
+    {
+        isDialogueJustFinished = false;
+        // 如果玩家还在范围内，重新显示“按E”
+        // 这里可以根据实际需要决定是否重新显示
+    }
+
+    private void ResetInteraction()
+    {
+        isWaitingForChoice = false;
+        isDialogueJustFinished = false;
+        SetPlayerMovement(true);
+        if (pressEPrompt != null) pressEPrompt.SetActive(false);
+        if (optionsMenu != null) optionsMenu.SetActive(false);
+    }
+
+    private void SetPlayerMovement(bool canMove)
+    {
+        // 实际对接你的玩家控制脚本
+        Debug.Log(canMove ? "解锁移动" : "锁定移动并开启 1/2 选项");
     }
 }

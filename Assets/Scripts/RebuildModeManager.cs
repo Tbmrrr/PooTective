@@ -57,26 +57,29 @@ public class RebuildModeManager : MonoBehaviour
     public void UnlockAndEnter()
     {
         hasUnlockedRebuild = true;
-        // 第一次触发直接进入模式
+
+        // 第一次触发显示图标（或者在退出时显示）
+        if (normalUIAbilityIcon != null) normalUIAbilityIcon.SetActive(true);
+
         isRebuildModeActive = true;
         EnterRebuildMode();
     }
 
     private void EnterRebuildMode()
     {
-        // 处理 FocusMode
         if (FocusModeManager.Instance != null && FocusModeManager.Instance.isFocusModeActive)
         {
             FocusModeManager.Instance.ToggleFocusMode();
         }
 
-        // 只负责隐藏物体，不需要再去 GetComponent 了
         if (mainPlayer != null) mainPlayer.SetActive(false);
         if (rebuildFPSPlayer != null) rebuildFPSPlayer.SetActive(true);
 
-        // UI 逻辑
         if (normalHUDPanel != null) normalHUDPanel.SetActive(false);
         if (rebuildModePanel != null) rebuildModePanel.SetActive(true);
+
+        // --- 核心修复：进入重建模式时，隐藏常态 UI 里的那个图标 ---
+        if (normalUIAbilityIcon != null) normalUIAbilityIcon.SetActive(false);
     }
 
     private void ExitRebuildMode()
@@ -86,5 +89,18 @@ public class RebuildModeManager : MonoBehaviour
 
         if (normalHUDPanel != null) normalHUDPanel.SetActive(true);
         if (rebuildModePanel != null) rebuildModePanel.SetActive(false);
+
+        // --- 核心修复：退出重建模式时，只有解锁了才显示图标 ---
+        RefreshAbilityIcon();
+    }
+
+    // 新增：一个统一的刷新图标方法
+    public void RefreshAbilityIcon()
+    {
+        if (normalUIAbilityIcon == null) return;
+
+        // 只有解锁了，且当前不在重建模式，且常态UI是开启状态时才显示
+        bool shouldShow = hasUnlockedRebuild && !isRebuildModeActive;
+        normalUIAbilityIcon.SetActive(shouldShow);
     }
 }
