@@ -1,4 +1,18 @@
 using UnityEngine;
+using System.Collections.Generic;
+
+[System.Serializable]
+public class SearchableKeyword
+{
+    [Tooltip("高亮显示的词组")]
+    public string keyword;
+    [Tooltip("拖入搜索框后显示的搜索结果")]
+    [TextArea(2, 5)]
+    public string searchResult;
+    [Tooltip("搜索后追加到证物描述的内容（留空则不更新描述）")]
+    [TextArea(2, 5)]
+    public string descAppendOnSearch;
+}
 
 public class Evidence : MonoBehaviour
 {
@@ -15,6 +29,12 @@ public class Evidence : MonoBehaviour
     [TextArea(3, 5)]
     public string description;
 
+    [Header("搜索功能")]
+    [Tooltip("填写后该证物启用搜索功能")]
+    public List<SearchableKeyword> searchableKeywords = new List<SearchableKeyword>();
+    // 是否有搜索功能
+    public bool HasSearchFeature => searchableKeywords != null && searchableKeywords.Count > 0;
+
     [Header("调查对话 (交互时弹出)")]
     [Tooltip("调查时显示的文字，会自动加上'侦探：'")]
     public string[] interactLines;
@@ -26,23 +46,20 @@ public class Evidence : MonoBehaviour
 
     private void Start()
     {
-        hasInteracted = false; // 显式初始化，确保第一次能触发
+        hasInteracted = false;
         if (interactPrompt != null) interactPrompt.SetActive(false);
     }
 
     public virtual void OnInteract()
     {
-        // 1. 拦截已调查的情况
         if (hasInteracted)
         {
             Debug.Log(evidenceName + " 已经调查过了，不再响应。");
             return;
         }
 
-        // 2. 立即标记为已调查 (防止连按或重复触发)
         hasInteracted = true;
 
-        // 3. 执行对话逻辑
         if (DialogueManager.Instance != null && interactLines != null && interactLines.Length > 0)
         {
             string[] formattedLines = new string[interactLines.Length];
@@ -53,24 +70,17 @@ public class Evidence : MonoBehaviour
             DialogueManager.Instance.StartDialogue(formattedLines, null);
         }
 
-        // 4. 处理笔记本逻辑
         if (NoteManager.Instance != null)
         {
             NoteManager.Instance.AddEvidence(this);
             Debug.Log(evidenceName + " 已加入笔记本。ID: " + evidenceID);
         }
 
-        // 5. 调查完立即隐藏提示
         ShowPrompt(false);
-
-        // --- 核心修复：移除禁用 Collider 的代码 ---
-        // 不要在这里 GetComponent<Collider>().enabled = false; 
-        // 否则你第二次靠近或者射线检测就会完全失效。
     }
 
     public void ShowPrompt(bool show)
     {
-        // 如果已经调查过了，永远不显示提示
         if (hasInteracted)
         {
             if (interactPrompt != null) interactPrompt.SetActive(false);
@@ -80,7 +90,7 @@ public class Evidence : MonoBehaviour
         if (interactPrompt != null)
         {
             interactPrompt.SetActive(show);
-            if (show) Debug.Log("靠近了证物：" + evidenceName); // 辅助调试：看控制台有没有这行
+            if (show) Debug.Log("靠近了证物：" + evidenceName);
         }
     }
 }
