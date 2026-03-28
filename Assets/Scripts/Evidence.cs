@@ -91,14 +91,23 @@ public class Evidence : MonoBehaviour
         {
             hasInteracted = true;
 
-            if (InteractionHistoryManager.Instance != null)
+            // ✅ 只有在勾选了 canPickUp 时，才记录到历史并加入背包
+            if (canPickUp)
             {
-                InteractionHistoryManager.Instance.RecordEvidenceInteraction(evidenceID);
-            }
+                if (InteractionHistoryManager.Instance != null)
+                {
+                    InteractionHistoryManager.Instance.RecordEvidenceInteraction(evidenceID);
+                }
 
-            if (NoteManager.Instance != null)
+                if (NoteManager.Instance != null)
+                {
+                    NoteManager.Instance.AddEvidence(this);
+                }
+                Debug.Log($"[Evidence] {evidenceName} 已加入背包。");
+            }
+            else
             {
-                NoteManager.Instance.AddEvidence(this);
+                Debug.Log($"[Evidence] {evidenceName} 仅供调查，不加入背包。");
             }
         }
 
