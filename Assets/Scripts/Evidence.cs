@@ -39,6 +39,11 @@ public class Evidence : MonoBehaviour
     public bool canPickUp = true;
     public bool canAskNPC = true;
 
+    // ✅ 新增：特殊功能开关
+    [Header("特殊功能")]
+    [Tooltip("勾选后，第一次交互将解锁重建模式的时间节点2")]
+    public bool unlockRebuildNode2 = false;
+
     [Header("证物基本信息 (用于背包)")]
     public string evidenceName;
     public Sprite evidenceIcon;
@@ -66,7 +71,7 @@ public class Evidence : MonoBehaviour
     private bool hasInteracted = false;
     private bool isShowingEvidence = false;
 
-    // ✅ 新增：本地交互锁，防止按键过快导致的重复触发
+    // ✅ 本地交互锁，防止按键过快导致的重复触发
     private bool isProcessing = false;
 
     private void Start()
@@ -91,6 +96,12 @@ public class Evidence : MonoBehaviour
         {
             hasInteracted = true;
 
+            // ✅ 处理时间节点解锁逻辑
+            if (unlockRebuildNode2 && RebuildModeManager.Instance != null)
+            {
+                RebuildModeManager.Instance.UnlockTimeNode2();
+            }
+
             // ✅ 只有在勾选了 canPickUp 时，才记录到历史并加入背包
             if (canPickUp)
             {
@@ -107,6 +118,8 @@ public class Evidence : MonoBehaviour
             }
             else
             {
+                // 如果不能捡起，但你依然希望它触发“已交互”条件，可以取消下面这行的注释
+                // InteractionHistoryManager.Instance.RecordEvidenceInteraction(evidenceID);
                 Debug.Log($"[Evidence] {evidenceName} 仅供调查，不加入背包。");
             }
         }
