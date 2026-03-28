@@ -1,6 +1,30 @@
 using UnityEngine;
 using System.Collections.Generic;
 
+/// <summary>
+/// 条件质询响应
+/// 根据前置条件显示不同的质询对话
+/// </summary>
+[System.Serializable]
+public struct ConditionalEvidenceMapping
+{
+    [Tooltip("证物ID")]
+    public string evidenceID;
+
+    [Tooltip("触发此响应的前置条件（留空 = 无条件，作为默认响应）")]
+    public InteractionCondition[] conditions;
+
+    [Tooltip("满足条件时的对话")]
+    [TextArea(5, 10)]
+    public string[] responseDialogue;
+
+    [Tooltip("更新后的证物描述（留空则不更新）")]
+    public string updatedDescription;
+
+    [Tooltip("条件说明（仅用于Inspector，方便查看）")]
+    public string conditionDescription;
+}
+
 [System.Serializable]
 public struct EvidenceMapping
 {
@@ -19,8 +43,14 @@ public class NPCInteractable : MonoBehaviour
     public GameObject pressEPrompt;
     public GameObject optionsMenu;
 
-    [Header("证物系统配置")]
+    [Header("证物系统配置 - 简单模式")]
+    [Tooltip("简单质询响应（无条件）")]
     public List<EvidenceMapping> evidenceResponses;
+
+    [Header("证物系统配置 - 条件模式（高级）")]
+    [Tooltip("条件质询响应：根据前置条件显示不同内容。优先级高于简单模式。")]
+    public List<ConditionalEvidenceMapping> conditionalEvidenceResponses;
+
     [TextArea(2, 3)] public string[] defaultWrongResponse = { "证人：我不认识这个东西。" };
 
     private string[] normalDialogueLines;
@@ -111,6 +141,37 @@ public class NPCInteractable : MonoBehaviour
     {
         if (optionsMenu != null) optionsMenu.SetActive(false);
 
+        // ===== 记录质询历史 =====
+        if (InteractionHistoryManager.Instance != null)
+        {
+            InteractionHistoryManager.Instance.RecordEvidencePresented(npcDisplayName, evidenceID);
+        }
+
+        // ===== 优先检查条件质询 =====
+        if (conditionalEvidenceResponses != null && conditionalEvidenceResponses.Count > 0)
+        {
+            foreach (var condMapping in conditionalEvidenceResponses)
+            {
+                if (condMapping.evidenceID == evidenceID)
+                {
+                    // 检查条件
+                    bool conditionsMet = InteractionHistoryManager.Instance != null
+                        ? InteractionHistoryManager.Instance.CheckConditions(condMapping.conditions)
+                        : (condMapping.conditions == null || condMapping.conditions.Length == 0);
+
+                    if (conditionsMet)
+                    {
+                        Debug.Log($"[条件质询] {npcDisplayName} 使用条件响应: {condMapping.conditionDescription}");
+                        pendingUpdateID = evidenceID;
+                        pendingUpdateDesc = condMapping.updatedDescription;
+                        DialogueManager.Instance.StartDialogue(condMapping.responseDialogue, this);
+                        return;
+                    }
+                }
+            }
+        }
+
+        // ===== 检查简单质询 =====
         foreach (var mapping in evidenceResponses)
         {
             if (mapping.evidenceID == evidenceID)
@@ -121,6 +182,8 @@ public class NPCInteractable : MonoBehaviour
                 return;
             }
         }
+
+        // ===== 没有匹配的响应，使用默认错误响应 =====
         DialogueManager.Instance.StartDialogue(defaultWrongResponse, this);
     }
 
@@ -134,7 +197,7 @@ public class NPCInteractable : MonoBehaviour
 
         SetPlayerMovement(true);
 
-        // ✅ 修复：同时判断 ID 和描述都不为空，留空 updatedDescription 则不做任何更新
+        // 同时判断 ID 和描述都不为空，留空 updatedDescription 则不做任何更新
         if (!string.IsNullOrEmpty(pendingUpdateID) && !string.IsNullOrEmpty(pendingUpdateDesc))
         {
             NoteManager.Instance.UpdateEvidenceInfo(pendingUpdateID, pendingUpdateDesc);
