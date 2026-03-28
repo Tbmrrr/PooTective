@@ -276,6 +276,82 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 95459c1fb8180ce41ac03dc6b72907f5, type: 3}
   m_PrefabInstance: {fileID: 428763503}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &50313344
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 50313346}
+  - component: {fileID: 50313345}
+  m_Layer: 0
+  m_Name: EvidenceDisplayManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &50313345
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 50313344}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a2353aac6e1b126438f1307d8716e4a7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  targetCamera: {fileID: 1543681673}
+  forwardDistance: 1.66
+  upwardOffset: 0.4
+  sideOffset: 0
+  flyDuration: 0.6
+  displayScaleFactor: 6
+  flyCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  arcHeightFactor: 0
+  displayLayer: UI
+--- !u!4 &50313346
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 50313344}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &56065123
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -706,10 +782,12 @@ MonoBehaviour:
   evidenceName: newspaper
   evidenceIcon: {fileID: 21300000, guid: df3a0af7ee009464bb97dc91b1278fe9, type: 3}
   evidenceFullImage: {fileID: 21300000, guid: df3a0af7ee009464bb97dc91b1278fe9, type: 3}
-  description: "\u52A8\u7269\u57CE\u62A5\n\u6700\u8FD1\u52A8\u7269\u4EEC\u90FD\u4E0D\u592A\u559C\u6B22\u5403\u6216\u841D\u535C\u3002"
+  description: "\u52A8\u7269\u57CE\u62A5\n\u6700\u8FD1\u52A8\u7269\u4EEC\u90FD\u4E0D\u592A\u559C\u6B22\u5403\u80E1\u841D\u535C\u3002"
   searchableKeywords: []
   interactLines:
   - "\u6700\u8FD1\u5173\u4E8E\u201C\u80E1\u841D\u535C\u4E0D\u5229\u4E8E\u5065\u5EB7\u201D\u7684\u4F20\u8A00\u5E7F\u4E3A\u6D41\u4F20\u3002\u4E8B\u5B9E\u4E0A\uFF0C\u8FD9\u53EA\u662F\u4E00\u5BB6\u4FDD\u5065\u54C1\u516C\u53F8\u4E3A\u4E86\u63A8\u9500\u4ED6\u4EEC\u7684\u6297\u7CD6\u836F\u800C\u8FDB\u884C\u7684\u7092\u4F5C\u3002"
+  conditionalDialogues: []
+  displayModel: {fileID: 182509479}
   interactPrompt: {fileID: 1861905375}
 --- !u!135 &135676257
 SphereCollider:
@@ -732,6 +810,50 @@ SphereCollider:
   serializedVersion: 3
   m_Radius: 0.45437583
   m_Center: {x: 0, y: 0, z: 0.045624163}
+--- !u!1 &145949457
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 145949459}
+  - component: {fileID: 145949458}
+  m_Layer: 0
+  m_Name: InteractionHistory
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &145949458
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 145949457}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: af1e6e3d4ef64004c95d3480776b4d6f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!4 &145949459
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 145949457}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &163485622
 GameObject:
   m_ObjectHideFlags: 0
@@ -3691,9 +3813,21 @@ MonoBehaviour:
   - keyword: "\u80E1\u841D\u535C"
     searchResult: "\u80E1\u841D\u535C\u6807\u5FD7\u6027\u7684\u6A59\u8272\u6E90\u81EA\u4E30\u5BCC\u7684\u03B2-\u80E1\u841D\u535C\u7D20\uFF0C\u65E2\u53EF\u751F\u98DF\u4E5F\u53EF\u719F\u70F9\uFF0C\u8425\u517B\u4EF7\u503C\u5F88\u9AD8\u3002\u5176\u9AD8\u7CD6\u5206\u7684\u7279\u70B9\u5438\u5F15\u4E86\u5F88\u591A\u52A8\u7269\u7684\u559C\u7231\u3002"
     descAppendOnSearch: "\u80E1\u841D\u535C\u542B\u6709\u5927\u91CF\u7684\u80E1\u841D\u535C\u7D20\u3002"
-  interactLines:
-  - "\u4E00\u4E9B\u852B\u6389\u7684\u852C\u83DC\u3002"
-  - "\u6700\u8FD1\u7684\u5BA2\u4EBA\u80AF\u5B9A\u90FD\u4E0D\u5403\u80E1\u841D\u535C\uFF0C\u4F46\u8D27\u67B6\u4E0A\u53EA\u5269\u4E0B\u7684\u51E0\u6839\u80E1\u841D\u535C\u3002"
+  interactLines: []
+  conditionalDialogues:
+  - conditions:
+    - type: 0
+      evidenceID: newspaper
+      npcName: 
+    dialogueLines:
+    - "\u4E00\u4E9B\u852B\u6389\u7684\u852C\u83DC\u3002"
+    - "\u6700\u8FD1\u7684\u5BA2\u4EBA\u80AF\u5B9A\u90FD\u4E0D\u5403\u80E1\u841D\u535C\uFF0C\u4F46\u8D27\u67B6\u4E0A\u53EA\u5269\u4E0B\u7684\u51E0\u6839\u80E1\u841D\u535C"
+    conditionDescription: "\u548C\u62A5\u7EB8\u4EA4\u4E92\u8FC7"
+  - conditions: []
+    dialogueLines:
+    - "\u4E00\u4E9B\u852B\u6389\u7684\u852C\u83DC\u3002"
+    conditionDescription: "\u672A\u548C\u62A5\u7EB8\u4EA4\u4E92\u8FC7"
+  displayModel: {fileID: 1139500520}
   interactPrompt: {fileID: 437392718}
 --- !u!1 &544671737 stripped
 GameObject:
@@ -4516,6 +4650,8 @@ MonoBehaviour:
   searchableKeywords: []
   interactLines:
   - "\u4E0A\u9762\u662F\u6700\u8FD1\u4E00\u4E2A\u6708\u7684\u8FDB\u8D27\u8BB0\u5F55\uFF0C\u6CA1\u6709\u4EC0\u4E48\u5F02\u5E38\u3002"
+  conditionalDialogues: []
+  displayModel: {fileID: 1326678601}
   interactPrompt: {fileID: 994244667}
 --- !u!1 &628375570
 GameObject:
@@ -5092,6 +5228,10 @@ PrefabInstance:
     - target: {fileID: 919132149155446097, guid: a569f0fb098b8684a88bb9e1d0e162e3, type: 3}
       propertyPath: m_Name
       value: ground_new
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: a569f0fb098b8684a88bb9e1d0e162e3, type: 3}
+      propertyPath: m_IsActive
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -7438,6 +7578,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: whole_hotel_wall_new
       objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 949fa28c3162180488d0840f7eb0ff05, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -8985,6 +9129,8 @@ MonoBehaviour:
   searchableKeywords: []
   interactLines:
   - "\u6839\u636E\u76D1\u63A7\u6765\u770B\uFF0C\u8FD9\u51E0\u5929\u53EA\u6709\u65AF\u79D1\u3001\u5B81\u5A1C\u548C\u6BD4\u5965\u8FDB\u5165\u8FC7\u51B0\u5E93\u3002\u53EA\u6709\u65AF\u79D1\u4ECE\u51B0\u5E93\u5E26\u51FA\u8FC7\u98DF\u6750\uFF0C\u800C\u4E14\u5176\u4E2D\u6CA1\u6709\u5927\u91CF\u7684\u80E1\u841D\u535C\u3002"
+  conditionalDialogues: []
+  displayModel: {fileID: 1852004562}
   interactPrompt: {fileID: 290136534}
 --- !u!65 &1234455083
 BoxCollider:
@@ -9673,7 +9819,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   playerCamera: {fileID: 1543681674}
-  moveSpeed: 3
+  moveSpeed: 5
   rotationSpeed: 10
   gravity: 9.81
   mouseSensitivity: 3
@@ -9794,6 +9940,7 @@ MonoBehaviour:
   - evidenceID: 
     responseDialogue: []
     updatedDescription: 
+  conditionalEvidenceResponses: []
   defaultWrongResponse:
   - "\u72D2\u72D2\uFF1A\u6211\u5BF9\u8FD9\u4E2A\u6CA1\u4EC0\u4E48\u4FE1\u606F\u8865\u5145\u3002"
 --- !u!1 &1314582820
@@ -11513,7 +11660,7 @@ Transform:
   m_GameObject: {fileID: 1543681671}
   serializedVersion: 2
   m_LocalRotation: {x: 0.19491917, y: 0, z: 0, w: 0.98081934}
-  m_LocalPosition: {x: -64.43, y: 5.78, z: -33.71}
+  m_LocalPosition: {x: -64.43, y: 5.4, z: -33.87}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -14420,6 +14567,7 @@ MonoBehaviour:
     - "\u4FA6\u63A2\uFF1A\u90A3\u8FD9\u4E2A\u957F\u9888\u9E7F\u5462\uFF1F"
     - "\u91CE\u732A\uFF1A\u60A8\u8BF4\u5B81\u5A1C\u554A\u3002\u5979\u5E73\u65F6\u8D1F\u8D23\u6E05\u6D01\u51B0\u5E93\uFF0C\u8FDB\u53BB\u4E5F\u5F88\u6B63\u5E38\u3002"
     updatedDescription: 
+  conditionalEvidenceResponses: []
   defaultWrongResponse:
   - "\u91CE\u732A\u4E3B\u53A8\uFF1A\u6211\u5BF9\u8FD9\u4E2A\u6CA1\u4EC0\u4E48\u4FE1\u606F\u8865\u5145\u3002"
 --- !u!135 &2004902821
@@ -14736,6 +14884,8 @@ MonoBehaviour:
   searchableKeywords: []
   interactLines:
   - "\u8FD9\u662F\u9152\u5E97\u7684\u5458\u5DE5\u540D\u5355\u3002"
+  conditionalDialogues: []
+  displayModel: {fileID: 469893608}
   interactPrompt: {fileID: 856285852}
   destroyDelay: 0.1
 --- !u!135 &2108812041
@@ -14975,7 +15125,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 57e8c39260f19d94484ffcb63246f2c1, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 1.6191201
+      value: 1.59
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 57e8c39260f19d94484ffcb63246f2c1, type: 3}
       propertyPath: m_LocalPosition.z
@@ -15079,3 +15229,5 @@ SceneRoots:
   - {fileID: 793571942}
   - {fileID: 1659208055}
   - {fileID: 8777195}
+  - {fileID: 50313346}
+  - {fileID: 145949459}
