@@ -42,6 +42,9 @@ public class NPCInteractable : MonoBehaviour
     [Header("世界空间提示 (World Space UI)")]
     public GameObject pressEPrompt;
     public GameObject optionsMenu;
+    // ✅ 新增：NPC 名字 UI 的引用
+    [Tooltip("显示 NPC 名字的 UI 物体")]
+    public GameObject npcNameUI;
 
     [Header("证物系统配置 - 简单模式")]
     [Tooltip("简单质询响应（无条件）")]
@@ -64,6 +67,8 @@ public class NPCInteractable : MonoBehaviour
     {
         if (pressEPrompt != null) pressEPrompt.SetActive(false);
         if (optionsMenu != null) optionsMenu.SetActive(false);
+        // ✅ 初始隐藏名字
+        if (npcNameUI != null) npcNameUI.SetActive(false);
 
         if (dialogueFile != null)
         {
@@ -84,8 +89,12 @@ public class NPCInteractable : MonoBehaviour
     {
         if (other.CompareTag("Player") && !DialogueManager.Instance.isDialogueActive)
         {
-            if (!isWaitingForChoice && !isDialogueJustFinished && pressEPrompt != null)
-                pressEPrompt.SetActive(true);
+            if (!isWaitingForChoice && !isDialogueJustFinished)
+            {
+                if (pressEPrompt != null) pressEPrompt.SetActive(true);
+                // ✅ 走进范围显示名字
+                if (npcNameUI != null) npcNameUI.SetActive(true);
+            }
         }
     }
 
@@ -102,6 +111,7 @@ public class NPCInteractable : MonoBehaviour
         if (DialogueManager.Instance.isDialogueActive || isWaitingForChoice || isDialogueJustFinished) return;
 
         if (pressEPrompt != null) pressEPrompt.SetActive(false);
+        // ✅ 交互开始时（选择菜单开启时）通常保持名字显示或根据需求关闭，这里保持一致性
         if (optionsMenu != null) optionsMenu.SetActive(true);
 
         SetPlayerMovement(false);
@@ -112,6 +122,8 @@ public class NPCInteractable : MonoBehaviour
     {
         isWaitingForChoice = false;
         if (optionsMenu != null) optionsMenu.SetActive(false);
+        // ✅ 选好后进入对话，隐藏名字 UI 以免遮挡对话框
+        if (npcNameUI != null) npcNameUI.SetActive(false);
 
         if (choice == 1) StartNormalQuestion();
         else if (choice == 2) OpenEvidenceToPresent();
@@ -140,6 +152,8 @@ public class NPCInteractable : MonoBehaviour
     public void ReceiveEvidence(string evidenceID)
     {
         if (optionsMenu != null) optionsMenu.SetActive(false);
+        // ✅ 提交证物进入对话前隐藏名字
+        if (npcNameUI != null) npcNameUI.SetActive(false);
 
         // ===== 记录质询历史 =====
         if (InteractionHistoryManager.Instance != null)
@@ -192,6 +206,8 @@ public class NPCInteractable : MonoBehaviour
         isWaitingForChoice = false;
         if (optionsMenu != null) optionsMenu.SetActive(false);
         if (pressEPrompt != null) pressEPrompt.SetActive(false);
+        // ✅ 对话结束完全重置 UI 状态
+        if (npcNameUI != null) npcNameUI.SetActive(false);
 
         isDialogueJustFinished = true;
 
@@ -221,6 +237,8 @@ public class NPCInteractable : MonoBehaviour
         SetPlayerMovement(true);
         if (pressEPrompt != null) pressEPrompt.SetActive(false);
         if (optionsMenu != null) optionsMenu.SetActive(false);
+        // ✅ 离开范围隐藏名字
+        if (npcNameUI != null) npcNameUI.SetActive(false);
     }
 
     private void SetPlayerMovement(bool canMove)

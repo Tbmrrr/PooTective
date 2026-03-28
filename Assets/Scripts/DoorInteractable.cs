@@ -5,9 +5,9 @@ public class DoorInteractable : MonoBehaviour
 {
     [Header("动画设置")]
     public Animator doorAnimator;
-    private string animStateName = "opendoor"; // 你的动画状态名
-    private string speedParam = "AnimSpeed";   // Multiplier 参数名
-    public float autoCloseDelay = 3f;          // 自动关门延迟
+    private string animStateName = "opendoor";
+    private string speedParam = "AnimSpeed";
+    public float autoCloseDelay = 3f;
 
     [Header("状态设置")]
     public bool isOpen = false;
@@ -18,54 +18,57 @@ public class DoorInteractable : MonoBehaviour
     public GameObject interactPrompt;
 
     private Coroutine closeCoroutine;
-
-    private MeshCollider doorMeshCollider; // 用于存储子物体的 MeshCollider
+    private MeshCollider doorMeshCollider;
 
     private void Start()
     {
         if (interactPrompt != null) interactPrompt.SetActive(false);
-        // 初始确保动画不播放
         if (doorAnimator != null) doorAnimator.SetFloat(speedParam, 0);
         doorMeshCollider = GetComponentInChildren<MeshCollider>();
     }
 
     public void OnInteract()
     {
-        // 1. 处理锁门逻辑
         if (isLocked && !isOpen)
         {
             if (DialogueManager.Instance != null)
             {
-                // 统一显示“侦探：”前缀
                 DialogueManager.Instance.StartDialogue(new string[] { "侦探：" + lockedHint }, null);
             }
             return;
         }
 
-        // 2. 交互切换
-        if (!isOpen)
-        {
-            OpenDoor();
-        }
-        else
-        {
-            // 如果门开着的时候你又按了E，立刻手动关门
-            CloseDoor();
-        }
+        if (!isOpen) OpenDoor();
+        else CloseDoor();
     }
 
     private void OpenDoor()
     {
         isOpen = true;
-        
-        if (doorMeshCollider != null) doorMeshCollider.isTrigger = true;
-        if (doorAnimator != null)
+
+        // ✅ 核心修复：判断是否在重建模式
+        bool isRebuild = RebuildModeManager.Instance != null && RebuildModeManager.Instance.isRebuildModeActive;
+
+        if (doorMeshCollider != null)
         {
-            doorAnimator.SetFloat(speedParam, 1f); // 正放
-            doorAnimator.Play(animStateName, 0, 0f); // 从 0% 开始播
+            if (isRebuild)
+            {
+                // 如果是重建模式，直接把碰撞体禁用，确保 100% 能穿过去
+                doorMeshCollider.enabled = false;
+            }
+            else
+            {
+                // 正常模式保持你原来的 Trigger 逻辑
+                doorMeshCollider.isTrigger = true;
+            }
         }
 
-        // 开启 3 秒自动关门倒计时
+        if (doorAnimator != null)
+        {
+            doorAnimator.SetFloat(speedParam, 1f);
+            doorAnimator.Play(animStateName, 0, 0f);
+        }
+
         if (closeCoroutine != null) StopCoroutine(closeCoroutine);
         closeCoroutine = StartCoroutine(AutoCloseTimer());
     }
@@ -73,12 +76,19 @@ public class DoorInteractable : MonoBehaviour
     private void CloseDoor()
     {
         isOpen = false;
+
         if (doorAnimator != null)
         {
-            doorAnimator.SetFloat(speedParam, -1f); // 倒放
-            doorAnimator.Play(animStateName, 0, 1f); // 从 100% 处开始往回播
+            doorAnimator.SetFloat(speedParam, -1f);
+            doorAnimator.Play(animStateName, 0, 1f);
         }
-        if (doorMeshCollider != null) doorMeshCollider.isTrigger = false;
+
+        // ✅ 恢复碰撞体
+        if (doorMeshCollider != null)
+        {
+            doorMeshCollider.enabled = true; // 确保启用
+            doorMeshCollider.isTrigger = false;
+        }
 
         if (closeCoroutine != null) StopCoroutine(closeCoroutine);
     }
@@ -86,10 +96,7 @@ public class DoorInteractable : MonoBehaviour
     IEnumerator AutoCloseTimer()
     {
         yield return new WaitForSeconds(autoCloseDelay);
-        if (isOpen)
-        {
-            CloseDoor();
-        }
+        if (isOpen) CloseDoor();
     }
 
     public void ShowPrompt(bool show)

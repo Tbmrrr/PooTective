@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 
 public class RebuildModeManager : MonoBehaviour
 {
@@ -15,9 +16,14 @@ public class RebuildModeManager : MonoBehaviour
     public GameObject rebuildModePanel;    // 重建模式专用的 Panel
     public GameObject normalUIAbilityIcon; // 第一次触发后，在常态 UI 中显示的图标
 
+    [Header("时间节点按钮 (重建模式)")]
+    [Tooltip("重建模式面板中的第二个按钮")]
+    public Button nodeButton2;
+
     [Header("状态")]
     public bool isRebuildModeActive = false;
-    public bool hasUnlockedRebuild = false; // 是否已经解锁了该模式
+    public bool hasUnlockedRebuild = false;
+    public bool hasUnlockedNode2 = false;
 
     private void Awake()
     {
@@ -27,40 +33,76 @@ public class RebuildModeManager : MonoBehaviour
 
     void Start()
     {
-        // 初始状态
         if (rebuildModePanel != null) rebuildModePanel.SetActive(false);
         if (normalUIAbilityIcon != null) normalUIAbilityIcon.SetActive(false);
-
-        // 确保游戏开始时，远端角色是关闭的
         if (rebuildFPSPlayer != null) rebuildFPSPlayer.SetActive(false);
+
+        // 初始状态：根据解锁情况更新按钮2
+        if (nodeButton2 != null)
+        {
+            UpdateNode2Visuals(hasUnlockedNode2);
+        }
     }
 
-    // 外部调用：开启/关闭模式
+    /// <summary>
+    /// 由 Evidence (例如大便2) 第一次交互时调用
+    /// </summary>
+    public void UnlockTimeNode2()
+    {
+        hasUnlockedNode2 = true;
+        if (nodeButton2 != null)
+        {
+            UpdateNode2Visuals(true);
+        }
+        Debug.Log("<color=#5A5757>[重建模式]</color> 时间节点 2 已解锁！");
+    }
+
+    /// <summary>
+    /// 核心逻辑：使用 0-255 整数控制颜色，且保留 UI 原有的 Alpha 透明度
+    /// </summary>
+    private void UpdateNode2Visuals(bool isUnlocked)
+    {
+        if (nodeButton2 == null) return;
+
+        // 设置按钮是否可以点击
+        nodeButton2.interactable = isUnlocked;
+
+        // 1. 处理按钮图片颜色 (Image)
+        Image btnImage = nodeButton2.GetComponent<Image>();
+        if (btnImage != null)
+        {
+            // 如果解锁了就变白 (255,255,255)，没解锁就变 5A5757 (90,87,87)
+            // byte 强制转换确保数值合法，最后一位保留组件原本的 a (透明度)
+            byte currentAlpha = (byte)(btnImage.color.a * 255);
+            btnImage.color = isUnlocked ?
+                new Color32(255, 255, 255, currentAlpha) :
+                new Color32(90, 87, 87, currentAlpha);
+        }
+
+        // 2. 处理按钮文字颜色 (Text)
+        Text btnText = nodeButton2.GetComponentInChildren<Text>();
+        if (btnText != null)
+        {
+            byte currentAlpha = (byte)(btnText.color.a * 255);
+            btnText.color = isUnlocked ?
+                new Color32(255, 255, 255, currentAlpha) :
+                new Color32(90, 87, 87, currentAlpha);
+        }
+    }
+
     public void ToggleRebuildMode()
     {
-        // 如果从未触发过，由 Poo 逻辑调用 Unlock
         if (!hasUnlockedRebuild) return;
-
         isRebuildModeActive = !isRebuildModeActive;
 
-        if (isRebuildModeActive)
-        {
-            EnterRebuildMode();
-        }
-        else
-        {
-            ExitRebuildMode();
-        }
+        if (isRebuildModeActive) EnterRebuildMode();
+        else ExitRebuildMode();
     }
 
-    // 第一次触发时由 Poo 调用
     public void UnlockAndEnter()
     {
         hasUnlockedRebuild = true;
-
-        // 第一次触发显示图标（或者在退出时显示）
         if (normalUIAbilityIcon != null) normalUIAbilityIcon.SetActive(true);
-
         isRebuildModeActive = true;
         EnterRebuildMode();
     }
@@ -74,32 +116,27 @@ public class RebuildModeManager : MonoBehaviour
 
         if (mainPlayer != null) mainPlayer.SetActive(false);
         if (rebuildFPSPlayer != null) rebuildFPSPlayer.SetActive(true);
-
         if (normalHUDPanel != null) normalHUDPanel.SetActive(false);
         if (rebuildModePanel != null) rebuildModePanel.SetActive(true);
-
-        // --- 核心修复：进入重建模式时，隐藏常态 UI 里的那个图标 ---
         if (normalUIAbilityIcon != null) normalUIAbilityIcon.SetActive(false);
+
+        // 确保进入模式时按钮状态正确
+        UpdateNode2Visuals(hasUnlockedNode2);
     }
 
     private void ExitRebuildMode()
     {
         if (rebuildFPSPlayer != null) rebuildFPSPlayer.SetActive(false);
         if (mainPlayer != null) mainPlayer.SetActive(true);
-
         if (normalHUDPanel != null) normalHUDPanel.SetActive(true);
         if (rebuildModePanel != null) rebuildModePanel.SetActive(false);
 
-        // --- 核心修复：退出重建模式时，只有解锁了才显示图标 ---
         RefreshAbilityIcon();
     }
 
-    // 新增：一个统一的刷新图标方法
     public void RefreshAbilityIcon()
     {
         if (normalUIAbilityIcon == null) return;
-
-        // 只有解锁了，且当前不在重建模式，且常态UI是开启状态时才显示
         bool shouldShow = hasUnlockedRebuild && !isRebuildModeActive;
         normalUIAbilityIcon.SetActive(shouldShow);
     }

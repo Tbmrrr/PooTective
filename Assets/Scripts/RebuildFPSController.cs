@@ -4,80 +4,171 @@ using UnityEngine;
 public class RebuildFPSController : MonoBehaviour
 {
     [Header("组件引用")]
-    public Transform playerCamera; // 拖入该角色下的 Camera 子物体
+    [Tooltip("如果是单物体结构，这里可以拖入自己，或者留空")]
+    public Transform playerCamera;
     private CharacterController controller;
 
     [Header("移动设置")]
     public float moveSpeed = 6.0f;
-    public float rotationSpeed = 10.0f;
 
     [Header("相机旋转设置")]
     public float mouseSensitivity = 3.0f;
+    [Tooltip("最大仰角/俯角")]
+    public float pitchLimit = 80f;
 
-    // 内部记录变量
-    private float yaw;
-    private float fixedPitch; // 保持你主角脚本中的固定俯仰角特性
+    [Header("交互设置 (第一人称射线)")]
+    public float interactDistance = 5.0f;
+    [Tooltip("在 Inspector 中勾选 Evidence 和 Door 所在的层")]
+    public LayerMask interactableLayer;
+
+    // 内部旋转累加器
+    private float yaw;      // 水平
+    private float pitch;    // 纵向
+    private bool isDialogueLock = false;
+
+    // 记录当前指向的对象
+    private Evidence currentEvidence;
+    private DoorInteractable currentDoor;
 
     void Start()
     {
         controller = GetComponent<CharacterController>();
 
-        // 自动获取子物体相机
-        if (playerCamera == null) playerCamera = GetComponentInChildren<Camera>().transform;
+        // 单物体结构下，直接引用自身
+        if (playerCamera == null) playerCamera = transform;
 
-        // 记录启动时的初始角度（复刻主角逻辑）
-        yaw = transform.eulerAngles.y;
-        fixedPitch = playerCamera.eulerAngles.x;
+        // 初始化角度，防止启动时视角瞬间跳回 0
+        Vector3 currentRot = transform.eulerAngles;
+        yaw = currentRot.y;
+        // 处理初始 Pitch（如果是单物体，通常初始是 0）
+        pitch = (currentRot.x > 180) ? currentRot.x - 360 : currentRot.x;
     }
 
     void Update()
     {
+        // 1. 状态锁判断
+        bool isNoteOpen = NoteManager.Instance != null && NoteManager.Instance.notePanel.activeSelf;
+        bool isDialogueActive = DialogueManager.Instance != null && DialogueManager.Instance.isDialogueActive;
+
+        if (isDialogueActive || isNoteOpen)
+        {
+            isDialogueLock = true;
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+            ClearAllPrompts();
+            return;
+        }
+
+        isDialogueLock = false;
+
+        // 2. 核心逻辑调用
         HandleCamera();
         HandleMovement();
+        HandleRaycastDetection();
+
+        // 3. 交互按键
+        if (Input.GetKeyDown(KeyCode.E))
+        {
+            ExecuteInteraction();
+        }
     }
 
     void HandleCamera()
     {
-        // 复刻主角逻辑：只有按下右键才允许左右转
+        if (isDialogueLock) return;
+
+        // 只有按下右键才允许旋转
         if (Input.GetMouseButton(1))
         {
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
 
+            // 累加输入
             yaw += Input.GetAxis("Mouse X") * mouseSensitivity;
+            pitch -= Input.GetAxis("Mouse Y") * mouseSensitivity;
+
+            // 限制纵向角度
+            pitch = Mathf.Clamp(pitch, -pitchLimit, pitchLimit);
+
+            // ✅ 单物体结构的核心：一次性应用欧拉角
+            transform.localRotation = Quaternion.Euler(pitch, yaw, 0);
         }
         else
         {
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
         }
-
-        // 第一人称逻辑：旋转由 yaw 决定
-        playerCamera.rotation = Quaternion.Euler(fixedPitch, yaw, 0);
-
-        // 角色物体的旋转也同步更新，确保移动方向正确
-        transform.rotation = Quaternion.Euler(0, yaw, 0);
     }
 
     void HandleMovement()
     {
+        if (isDialogueLock) return;
+
         float h = Input.GetAxisRaw("Horizontal");
         float v = Input.GetAxisRaw("Vertical");
         Vector3 inputDir = new Vector3(h, 0, v).normalized;
 
-        Vector3 moveDir = Vector3.zero;
-
         if (inputDir.magnitude >= 0.1f)
         {
-            // 复刻主角逻辑：移动方向参考当前的 yaw
-            float targetAngle = Mathf.Atan2(inputDir.x, inputDir.z) * Mathf.Rad2Deg + yaw;
-            moveDir = Quaternion.Euler(0, targetAngle, 0) * Vector3.forward;
+            // ✅ 修正移动逻辑：
+            // 无论头（pitch）抬多高，移动只参考水平面（yaw）的方向
+            Vector3 moveDir = Quaternion.Euler(0, yaw, 0) * inputDir;
+            controller.Move(moveDir * moveSpeed * Time.deltaTime);
+        }
+    }
+
+    void HandleRaycastDetection()
+    {
+        // 从屏幕中心发射射线
+        Camera cam = GetComponent<Camera>();
+        if (cam == null) return;
+
+        Ray ray = cam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0));
+        RaycastHit hit;
+
+        // 调试用黄线
+        Debug.DrawRay(ray.origin, ray.direction * interactDistance, Color.yellow);
+
+        // 如果你之前设置了 LayerMask 没反应，可以先去掉 interactableLayer 参数测试
+        if (Physics.Raycast(ray, out hit, interactDistance, interactableLayer))
+        {
+            GameObject hitObj = hit.collider.gameObject;
+
+            // 优先检测证物
+            Evidence evidence = hitObj.GetComponentInParent<Evidence>();
+            if (evidence != null)
+            {
+                if (currentEvidence != evidence) ClearAllPrompts();
+                currentEvidence = evidence;
+                currentEvidence.ShowPrompt(true);
+                return;
+            }
+
+            // 其次检测门
+            DoorInteractable door = hitObj.GetComponentInParent<DoorInteractable>();
+            if (door != null)
+            {
+                if (currentDoor != door) ClearAllPrompts();
+                currentDoor = door;
+                currentDoor.ShowPrompt(true);
+                return;
+            }
         }
 
-        // --- 已移除重力逻辑 ---
-        // 直接根据输入的方向和速度进行位移
-        Vector3 finalMove = moveDir * moveSpeed;
+        ClearAllPrompts();
+    }
 
-        controller.Move(finalMove * Time.deltaTime);
+    void ExecuteInteraction()
+    {
+        if (currentEvidence != null) currentEvidence.OnInteract();
+        else if (currentDoor != null) currentDoor.OnInteract();
+    }
+
+    void ClearAllPrompts()
+    {
+        if (currentEvidence != null) currentEvidence.ShowPrompt(false);
+        if (currentDoor != null) currentDoor.ShowPrompt(false);
+        currentEvidence = null;
+        currentDoor = null;
     }
 }
