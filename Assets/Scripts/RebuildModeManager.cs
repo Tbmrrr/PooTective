@@ -122,6 +122,12 @@ public class RebuildModeManager : MonoBehaviour
 
         // 确保进入模式时按钮状态正确
         UpdateNode2Visuals(hasUnlockedNode2);
+
+        // 如果之前有取出的证物，重新进入模式时显示它
+        if (TakenOutEvidenceUI.Instance != null && !string.IsNullOrEmpty(TakenOutEvidenceUI.Instance.currentEvidenceID))
+        {
+            TakenOutEvidenceUI.Instance.gameObject.SetActive(true);
+        }
     }
 
     private void ExitRebuildMode()
@@ -132,6 +138,12 @@ public class RebuildModeManager : MonoBehaviour
         if (rebuildModePanel != null) rebuildModePanel.SetActive(false);
 
         RefreshAbilityIcon();
+
+        // 退出重建模式，强行隐藏悬浮证物（但不清除数据，保证下次进来还在）
+        if (TakenOutEvidenceUI.Instance != null)
+        {
+            TakenOutEvidenceUI.Instance.gameObject.SetActive(false);
+        }
     }
 
     public void RefreshAbilityIcon()

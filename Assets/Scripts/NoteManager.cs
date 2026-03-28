@@ -41,6 +41,10 @@ public class NoteManager : MonoBehaviour
     [Tooltip("在这里手动添加角色信息，只有解锁员工名单后才会显示")]
     public List<EvidenceData> characterFiles = new List<EvidenceData>();
 
+    [Header("取出功能 (新增)")]
+    public Button takeOutBtn; // 右侧详情面板里的“取出”按钮
+    private string currentTakenOutID = null; // 当前被取出的证物ID
+
     private List<EvidenceData> collectedEvidence = new List<EvidenceData>();
     private EvidenceData selectedData;
 
@@ -53,7 +57,7 @@ public class NoteManager : MonoBehaviour
     // 记录"刚更新过、还未被玩家查看"的证物 ID
     private HashSet<string> pendingUpdateIDs = new HashSet<string>();
 
-    // 是否正处于搜索模式（防止 C 键和 N 键冲突）
+    // 是否正处于搜索模式（防止 C 键 and N 键冲突）
     private bool isSearchModeActive = false;
 
     // ✅ 新增内部状态：记录已经完成过搜索的证物 ID，防止重复搜索
@@ -86,6 +90,9 @@ public class NoteManager : MonoBehaviour
         if (evidenceTabBtn != null) evidenceTabBtn.onClick.AddListener(() => SwitchTab(NoteTab.Evidence));
         if (characterTabBtn != null) characterTabBtn.onClick.AddListener(() => SwitchTab(NoteTab.Character));
         if (presentSubmitBtn != null) presentSubmitBtn.onClick.AddListener(OnSubmitToNPC);
+
+        // 绑定新功能：取出按钮
+        if (takeOutBtn != null) takeOutBtn.onClick.AddListener(OnTakeOutClicked);
     }
 
     void Update()
@@ -117,6 +124,44 @@ public class NoteManager : MonoBehaviour
         {
             ToggleNote();
         }
+    }
+
+    // --- 新增取出功能逻辑 ---
+    private void OnTakeOutClicked()
+    {
+        if (selectedData.evidenceID != null && TakenOutEvidenceUI.Instance != null)
+        {
+            currentTakenOutID = selectedData.evidenceID;
+            TakenOutEvidenceUI.Instance.TakeOut(selectedData);
+            RefreshTakeOutButtonState();
+        }
+    }
+
+    public void OnTakenOutItemClosed()
+    {
+        currentTakenOutID = null;
+        RefreshTakeOutButtonState();
+    }
+
+    // --- 修改 2：完善按钮显示逻辑 (增加重建模式判定) ---
+    private void RefreshTakeOutButtonState()
+    {
+        if (takeOutBtn == null) return;
+
+        // 严谨的显示判定：
+        // 1. 必须在证物页签
+        // 2. 必须处于【重建模式】(RebuildModeManager.Instance.isRebuildModeActive)
+        // 3. 必须【已经选中】了一个有效的证物 ID
+        // 4. 当前屏幕上【没有】正在悬浮的证物
+
+        bool isRebuildMode = (RebuildModeManager.Instance != null && RebuildModeManager.Instance.isRebuildModeActive);
+
+        bool canShow = (currentTab == NoteTab.Evidence) &&
+                       isRebuildMode &&
+                       (!string.IsNullOrEmpty(selectedData.evidenceID)) &&
+                       string.IsNullOrEmpty(currentTakenOutID);
+
+        takeOutBtn.gameObject.SetActive(canShow);
     }
 
     // 尝试进入搜索模式（当前选中证物需要有搜索关键词）
@@ -203,8 +248,13 @@ public class NoteManager : MonoBehaviour
         currentTab = newTab;
         if (rightDetailGroup != null) rightDetailGroup.SetActive(false);
         if (searchHintObject != null) searchHintObject.SetActive(false);
+
         selectedEvidenceComponent = null;
+        selectedData = default; // 清空当前选中的数据，防止页签切换后按钮还留着
+
         RefreshList();
+        RefreshTakeOutButtonState(); // 此时 selectedData 为空，按钮会消失
+
         if (scrollRect != null) scrollRect.verticalNormalizedPosition = 1f;
     }
 
@@ -230,13 +280,19 @@ public class NoteManager : MonoBehaviour
         {
             currentTab = NoteTab.Evidence;
 
+            // 【关键】每次打开笔记本，先清空上一次选中的数据，防止按钮“残留”
+            selectedData = default;
+            selectedEvidenceComponent = null;
+
             if (normal2DUI != null) normal2DUI.SetActive(false);
             if (RebuildModeManager.Instance != null && RebuildModeManager.Instance.rebuildModePanel != null)
             {
                 RebuildModeManager.Instance.rebuildModePanel.SetActive(false);
             }
 
+            // 刷新列表和按钮状态（此时 selectedData 为空，取出按钮必然隐藏）
             SwitchTab(currentTab);
+
             Time.timeScale = 0;
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
@@ -259,6 +315,12 @@ public class NoteManager : MonoBehaviour
                 {
                     RebuildModeManager.Instance.rebuildModePanel.SetActive(true);
                 }
+
+                // 重建模式下 icon 依然存在
+                if (!string.IsNullOrEmpty(currentTakenOutID) && TakenOutEvidenceUI.Instance != null)
+                {
+                    TakenOutEvidenceUI.Instance.gameObject.SetActive(true);
+                }
             }
             else
             {
@@ -266,6 +328,12 @@ public class NoteManager : MonoBehaviour
                 if (RebuildModeManager.Instance != null && RebuildModeManager.Instance.rebuildModePanel != null)
                 {
                     RebuildModeManager.Instance.rebuildModePanel.SetActive(false);
+                }
+
+                // 退出重建模式，icon 消失
+                if (TakenOutEvidenceUI.Instance != null)
+                {
+                    TakenOutEvidenceUI.Instance.gameObject.SetActive(false);
                 }
 
                 if (RebuildModeManager.Instance != null)
@@ -353,6 +421,9 @@ public class NoteManager : MonoBehaviour
         {
             if (presentSubmitBtn != null) presentSubmitBtn.gameObject.SetActive(false);
         }
+
+        // 刷新取出按钮状态
+        RefreshTakeOutButtonState();
     }
 
     // 通过 evidenceID 在场景中查找对应的 Evidence 组件
