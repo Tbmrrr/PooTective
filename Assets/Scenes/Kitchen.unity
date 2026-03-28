@@ -14567,7 +14567,22 @@ MonoBehaviour:
     - "\u4FA6\u63A2\uFF1A\u90A3\u8FD9\u4E2A\u957F\u9888\u9E7F\u5462\uFF1F"
     - "\u91CE\u732A\uFF1A\u60A8\u8BF4\u5B81\u5A1C\u554A\u3002\u5979\u5E73\u65F6\u8D1F\u8D23\u6E05\u6D01\u51B0\u5E93\uFF0C\u8FDB\u53BB\u4E5F\u5F88\u6B63\u5E38\u3002"
     updatedDescription: 
-  conditionalEvidenceResponses: []
+  conditionalEvidenceResponses:
+  - evidenceID: vegetable
+    conditions:
+    - type: 0
+      evidenceID: newspaper
+      npcName: 
+    - type: 0
+      evidenceID: record
+      npcName: 
+    - type: 1
+      evidenceID: newspaper
+      npcName: "\u91CE\u732A\u4E3B\u53A8"
+    responseDialogue:
+    - "\u4FA6\u63A2\uFF1A\u4F60\u6709\u53D1\u73B0\u6700\u8FD1"
+    updatedDescription: 
+    conditionDescription: 
   defaultWrongResponse:
   - "\u91CE\u732A\u4E3B\u53A8\uFF1A\u6211\u5BF9\u8FD9\u4E2A\u6CA1\u4EC0\u4E48\u4FE1\u606F\u8865\u5145\u3002"
 --- !u!135 &2004902821

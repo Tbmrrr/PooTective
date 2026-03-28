@@ -62,9 +62,16 @@ public class UIManager : MonoBehaviour
     public void RestartScene()
     {
         Time.timeScale = 1f;
+
+        // ✅ 新增：在重启场景前，清空所有的交互和质询记录
+        if (InteractionHistoryManager.Instance != null)
+        {
+            InteractionHistoryManager.Instance.ClearHistory();
+        }
+
         string currentSceneName = SceneManager.GetActiveScene().name;
         SceneManager.LoadScene(currentSceneName);
-        Debug.Log("场景重置成功！");
+        Debug.Log("场景与交互历史重置成功！");
     }
 
     // --- 新增：退出游戏功能 ---
