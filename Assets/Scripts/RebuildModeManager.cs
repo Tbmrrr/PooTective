@@ -1,6 +1,9 @@
 using UnityEngine;
 using UnityEngine.UI;
 
+/// <summary>
+/// 重建模式管理器：负责常态与重建模式切换、时间节点解锁及带旋转的坐标传送
+/// </summary>
 public class RebuildModeManager : MonoBehaviour
 {
     public static RebuildModeManager Instance { get; private set; }
@@ -8,86 +11,116 @@ public class RebuildModeManager : MonoBehaviour
     [Header("角色与相机引用")]
     [Tooltip("场景中的主主角（例如：狗狗）")]
     public GameObject mainPlayer;
-    [Tooltip("远端房间里的第一人称控制器物体")]
+    [Tooltip("重建模式里的第一人称控制器")]
     public GameObject rebuildFPSPlayer;
 
-    [Header("UI 引用")]
-    public GameObject normalHUDPanel;      // 常态 UI 面板
-    public GameObject rebuildModePanel;    // 重建模式专用的 Panel
-    public GameObject normalUIAbilityIcon; // 第一次触发后，在常态 UI 中显示的图标
+    [Header("场景传送点 (包含位置与旋转信息)")]
+    [Tooltip("点击节点1时去的位置与朝向")]
+    public Transform node1Point;
+    [Tooltip("点击节点2时去的位置与朝向")]
+    public Transform node2Point;
 
-    [Header("时间节点按钮 (重建模式)")]
-    [Tooltip("重建模式面板中的第二个按钮")]
+    [Header("UI 引用")]
+    public GameObject normalHUDPanel;      // 常态 HUD
+    public GameObject rebuildModePanel;    // 重建模式控制台
+    public GameObject normalUIAbilityIcon; // 常态下的能力入口图标
+
+    [Header("时间节点按钮")]
+    public Button nodeButton1;
     public Button nodeButton2;
 
-    [Header("状态")]
+    [Header("状态属性")]
     public bool isRebuildModeActive = false;
     public bool hasUnlockedRebuild = false;
     public bool hasUnlockedNode2 = false;
 
     private void Awake()
     {
+        // 单例模式初始化
         if (Instance == null) Instance = this;
         else Destroy(gameObject);
     }
 
     void Start()
     {
+        // 初始状态清理
         if (rebuildModePanel != null) rebuildModePanel.SetActive(false);
         if (normalUIAbilityIcon != null) normalUIAbilityIcon.SetActive(false);
         if (rebuildFPSPlayer != null) rebuildFPSPlayer.SetActive(false);
 
-        // 初始状态：根据解锁情况更新按钮2
-        if (nodeButton2 != null)
-        {
-            UpdateNode2Visuals(hasUnlockedNode2);
-        }
+        // 绑定按钮点击事件
+        if (nodeButton1 != null) nodeButton1.onClick.AddListener(OnNode1Clicked);
+        if (nodeButton2 != null) nodeButton2.onClick.AddListener(OnNode2Clicked);
+
+        // 初始化节点2的视觉状态（锁定/解锁）
+        UpdateNode2Visuals(hasUnlockedNode2);
+    }
+
+    #region 时间节点控制逻辑 (带旋转的传送)
+
+    /// <summary>
+    /// 点击节点 1：回到最初的起点（包含预设朝向）
+    /// </summary>
+    public void OnNode1Clicked()
+    {
+        TeleportToPoint(node1Point);
+        Debug.Log("<color=#FFD700>[重建模式]</color> 已回溯至时间节点 1 (位置与旋转已同步)");
     }
 
     /// <summary>
-    /// 由 Evidence (例如大便2) 第一次交互时调用
+    /// 点击节点 2：跳跃到未来的片段（包含预设朝向）
     /// </summary>
+    public void OnNode2Clicked()
+    {
+        if (!hasUnlockedNode2)
+        {
+            Debug.LogWarning("节点 2 尚未解锁，无法传送！");
+            return;
+        }
+        TeleportToPoint(node2Point);
+        Debug.Log("<color=#FFD700>[重建模式]</color> 已跳跃至时间节点 2 (位置与旋转已同步)");
+    }
+
+    /// <summary>
+    /// 核心传送执行函数：同时处理坐标和旋转，并解决 CharacterController 冲突
+    /// </summary>
+    private void TeleportToPoint(Transform targetPoint)
+    {
+        if (rebuildFPSPlayer == null || targetPoint == null)
+        {
+            Debug.LogError("传送失败：检查 rebuildFPSPlayer 或 targetPoint 是否为空！");
+            return;
+        }
+
+        // 1. 获取 CharacterController
+        CharacterController cc = rebuildFPSPlayer.GetComponent<CharacterController>();
+
+        // 2. 暂时禁用控制器（否则无法手动修改 Transform）
+        if (cc != null) cc.enabled = false;
+
+        // 3. 执行位置同步
+        rebuildFPSPlayer.transform.position = targetPoint.position;
+
+        // 4. 执行旋转同步（让玩家面朝空物体的正面）
+        rebuildFPSPlayer.transform.rotation = targetPoint.rotation;
+
+        // 5. 恢复控制器
+        if (cc != null) cc.enabled = true;
+
+        // 6. 特殊处理：如果是第一人称控制器，可能需要重置其内部的 MouseLook 旋转（如有必要）
+        // 比如：rebuildFPSPlayer.GetComponent<YourFPSController>().ResetMouseLook();
+    }
+
+    #endregion
+
+    #region 重建模式切换与解锁逻辑
+
     public void UnlockTimeNode2()
     {
+        hasUnlockedRebuild = true;
         hasUnlockedNode2 = true;
-        if (nodeButton2 != null)
-        {
-            UpdateNode2Visuals(true);
-        }
+        UpdateNode2Visuals(true);
         Debug.Log("<color=#5A5757>[重建模式]</color> 时间节点 2 已解锁！");
-    }
-
-    /// <summary>
-    /// 核心逻辑：使用 0-255 整数控制颜色，且保留 UI 原有的 Alpha 透明度
-    /// </summary>
-    private void UpdateNode2Visuals(bool isUnlocked)
-    {
-        if (nodeButton2 == null) return;
-
-        // 设置按钮是否可以点击
-        nodeButton2.interactable = isUnlocked;
-
-        // 1. 处理按钮图片颜色 (Image)
-        Image btnImage = nodeButton2.GetComponent<Image>();
-        if (btnImage != null)
-        {
-            // 如果解锁了就变白 (255,255,255)，没解锁就变 5A5757 (90,87,87)
-            // byte 强制转换确保数值合法，最后一位保留组件原本的 a (透明度)
-            byte currentAlpha = (byte)(btnImage.color.a * 255);
-            btnImage.color = isUnlocked ?
-                new Color32(255, 255, 255, currentAlpha) :
-                new Color32(90, 87, 87, currentAlpha);
-        }
-
-        // 2. 处理按钮文字颜色 (Text)
-        Text btnText = nodeButton2.GetComponentInChildren<Text>();
-        if (btnText != null)
-        {
-            byte currentAlpha = (byte)(btnText.color.a * 255);
-            btnText.color = isUnlocked ?
-                new Color32(255, 255, 255, currentAlpha) :
-                new Color32(90, 87, 87, currentAlpha);
-        }
     }
 
     public void ToggleRebuildMode()
@@ -120,10 +153,11 @@ public class RebuildModeManager : MonoBehaviour
         if (rebuildModePanel != null) rebuildModePanel.SetActive(true);
         if (normalUIAbilityIcon != null) normalUIAbilityIcon.SetActive(false);
 
-        // 确保进入模式时按钮状态正确
+        // 进入模式时，默认初始化到节点 1 的位置和朝向
+        OnNode1Clicked();
+
         UpdateNode2Visuals(hasUnlockedNode2);
 
-        // 如果之前有取出的证物，重新进入模式时显示它
         if (TakenOutEvidenceUI.Instance != null && !string.IsNullOrEmpty(TakenOutEvidenceUI.Instance.currentEvidenceID))
         {
             TakenOutEvidenceUI.Instance.gameObject.SetActive(true);
@@ -139,12 +173,15 @@ public class RebuildModeManager : MonoBehaviour
 
         RefreshAbilityIcon();
 
-        // 退出重建模式，强行隐藏悬浮证物（但不清除数据，保证下次进来还在）
         if (TakenOutEvidenceUI.Instance != null)
         {
             TakenOutEvidenceUI.Instance.gameObject.SetActive(false);
         }
     }
+
+    #endregion
+
+    #region UI 辅助逻辑
 
     public void RefreshAbilityIcon()
     {
@@ -152,4 +189,31 @@ public class RebuildModeManager : MonoBehaviour
         bool shouldShow = hasUnlockedRebuild && !isRebuildModeActive;
         normalUIAbilityIcon.SetActive(shouldShow);
     }
+
+    private void UpdateNode2Visuals(bool isUnlocked)
+    {
+        if (nodeButton2 == null) return;
+
+        nodeButton2.interactable = isUnlocked;
+
+        Image btnImage = nodeButton2.GetComponent<Image>();
+        if (btnImage != null)
+        {
+            byte currentAlpha = (byte)(btnImage.color.a * 255);
+            btnImage.color = isUnlocked ?
+                new Color32(255, 255, 255, currentAlpha) :
+                new Color32(90, 87, 87, currentAlpha);
+        }
+
+        Text btnText = nodeButton2.GetComponentInChildren<Text>();
+        if (btnText != null)
+        {
+            byte currentAlpha = (byte)(btnText.color.a * 255);
+            btnText.color = isUnlocked ?
+                new Color32(255, 255, 255, currentAlpha) :
+                new Color32(90, 87, 87, currentAlpha);
+        }
+    }
+
+    #endregion
 }
