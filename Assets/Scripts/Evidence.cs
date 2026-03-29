@@ -17,6 +17,7 @@ public class SearchableKeyword
     public string descAppendOnSearch;
 }
 
+
 [System.Serializable]
 public class ConditionalDialogue
 {
@@ -63,6 +64,7 @@ public class Evidence : MonoBehaviour
     public ConditionalDialogue[] conditionalDialogues;
 
     [Header("3D展示模型")]
+    [Tooltip("这里请拖入你调好角度（如 0, 90, 0）的那个子物体模型")]
     public GameObject displayModel;
 
     [Header("交互反馈")]
@@ -71,7 +73,7 @@ public class Evidence : MonoBehaviour
     private bool hasInteracted = false;
     private bool isShowingEvidence = false;
 
-    // ✅ 本地交互锁，防止按键过快导致的重复触发
+    // 本地交互锁，防止按键过快导致的重复触发
     private bool isProcessing = false;
 
     private void Start()
@@ -118,17 +120,18 @@ public class Evidence : MonoBehaviour
             }
             else
             {
-                // 如果不能捡起，但你依然希望它触发“已交互”条件，可以取消下面这行的注释
-                // InteractionHistoryManager.Instance.RecordEvidenceInteraction(evidenceID);
                 Debug.Log($"[Evidence] {evidenceName} 仅供调查，不加入背包。");
             }
         }
 
-        // ===== 展示证物 =====
+        // ===== ✅ 核心展示逻辑：使用你调好的 Rotation =====
         if (EvidenceDisplayManager.Instance != null && displayModel != null)
         {
-            Transform finalPoint = transform;
-            EvidenceDisplayManager.Instance.ShowEvidence(displayModel, finalPoint);
+            // 获取你在场景/Inspector里给这个子模型调好的角度（比如报纸的 0, 90, 0）
+            Quaternion customRotation = displayModel.transform.localRotation;
+
+            // 传入展示管理器，确保飞出来的克隆体也是这个角度
+            EvidenceDisplayManager.Instance.ShowEvidence(displayModel, transform, customRotation);
             isShowingEvidence = true;
         }
 
