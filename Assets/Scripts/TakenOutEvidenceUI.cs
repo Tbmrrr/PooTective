@@ -18,6 +18,9 @@ public class TakenOutEvidenceUI : MonoBehaviour, IDragHandler, IEndDragHandler, 
     public float flySpeed = 8f;
     private Vector2 savedFixedPos;
 
+    [Tooltip("camera")]
+    public Camera interactionCamera;
+
     [HideInInspector] public string currentEvidenceID;
     private bool isDragging = false;
 
@@ -89,16 +92,57 @@ public class TakenOutEvidenceUI : MonoBehaviour, IDragHandler, IEndDragHandler, 
         rectTransform.position = eventData.position;
     }
 
+    // 记得在顶部引入
+    // using UnityEngine;
+
     public void OnEndDrag(PointerEventData eventData)
     {
         if (!isDragging) return;
-
         isDragging = false;
-        canvasGroup.blocksRaycasts = true;
 
-        StopAllCoroutines();
-        StartCoroutine(FlyToTarget(rectTransform.anchoredPosition));
-        Debug.Log("结束拖拽，准备飞回。");
+        if (canvasGroup != null) canvasGroup.blocksRaycasts = true;
+
+        bool isMatchSuccessful = false;
+
+        // ✅ 核心修正：优先使用手动指定的摄像机，如果没有指定，则尝试寻找主摄像机
+        Camera camToUse = interactionCamera != null ? interactionCamera : Camera.main;
+
+        if (camToUse == null)
+        {
+            Debug.LogError("FATAL: 既没有指定 interactionCamera，场景中也找不到 MainCamera！无法执行射线检测。");
+        }
+        else
+        {
+            // 使用正确的摄像机发射射线
+            Ray ray = camToUse.ScreenPointToRay(Input.mousePosition);
+            RaycastHit hit;
+
+            if (Physics.Raycast(ray, out hit, 100f))
+            {
+                Debug.Log("射线击中了: " + hit.collider.name); // 打印击中物体，方便排查数据
+
+                EvidenceReceiver receiver = hit.collider.GetComponent<EvidenceReceiver>();
+                if (receiver != null)
+                {
+                    if (receiver.TryMatchEvidence(currentEvidenceID))
+                    {
+                        isMatchSuccessful = true;
+                    }
+                }
+            }
+        }
+
+        // 处理结果 (逻辑同前...)
+        if (isMatchSuccessful)
+        {
+            gameObject.SetActive(false);
+            if (NoteManager.Instance != null) NoteManager.Instance.OnTakenOutItemClosed();
+        }
+        else
+        {
+            StopAllCoroutines();
+            if (rectTransform != null) StartCoroutine(FlyToTarget(rectTransform.anchoredPosition));
+        }
     }
 
     // --- 装饰元素控制 ---
