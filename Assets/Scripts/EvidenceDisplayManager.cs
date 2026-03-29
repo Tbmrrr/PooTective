@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 
 public class EvidenceDisplayManager : MonoBehaviour
 {
@@ -9,24 +10,24 @@ public class EvidenceDisplayManager : MonoBehaviour
     public Camera targetCamera;
 
     [Header("展示位置设置")]
-    public float forwardDistance = 2f;
-    public float upwardOffset = 0.5f;
+    public float forwardDistance = 1.2f;
+    public float upwardOffset = 0.1f;
     public float sideOffset = 0f;
 
     [Header("动画参数")]
-    public float flyDuration = 0.8f;
-    public float displayScaleFactor = 2.5f;
+    public float flyDuration = 0.6f;
+    public float displayScaleFactor = 2.0f;
     public AnimationCurve flyCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
 
-    [Header("弧线参数")]
-    public float arcHeightFactor = 0.2f;
-
     [Header("层级设置")]
-    public string displayLayer = "UI";
+    public string displayLayer = "Default";
 
     private GameObject currentDisplayObject;
     private Coroutine displayCoroutine;
     private Coroutine followCoroutine;
+
+    private List<GameObject> pages = new List<GameObject>();
+    private int currentPageIndex = 0;
 
     private void Awake()
     {
@@ -37,54 +38,83 @@ public class EvidenceDisplayManager : MonoBehaviour
     private void Start()
     {
         if (targetCamera == null) targetCamera = Camera.main;
+        if (targetCamera == null) Debug.LogError("[Debug] 找不到主摄像机！请在 Inspector 检查 Target Camera 赋值。");
     }
 
-    public void ShowEvidence(GameObject evidencePrefab, Transform startTransform, Quaternion targetModelLocalRotation)
+    public void ShowEvidence(GameObject evidencePrefab, Transform startTransform)
     {
+        Debug.Log($"<color=cyan>[Debug] 1. ShowEvidence 被调用。Prefab: {(evidencePrefab != null ? evidencePrefab.name : "空!")}</color>");
+
         if (currentDisplayObject != null) HideEvidence();
-        if (evidencePrefab == null || startTransform == null) return;
 
-        Vector3 startPos = startTransform.position;
-        currentDisplayObject = Instantiate(evidencePrefab);
-
-        // 初始化：先给它一个干净的旋转
-        currentDisplayObject.transform.rotation = Quaternion.identity;
-
-        AlignVisualCenter(currentDisplayObject, startPos);
-
-        Vector3 startScale = currentDisplayObject.transform.localScale;
-
-        SetLayerRecursively(currentDisplayObject, LayerMask.NameToLayer(displayLayer));
-        DisablePhysics(currentDisplayObject);
-
-        if (displayCoroutine != null) StopCoroutine(displayCoroutine);
-        
-        // 注意：这里我们依然带着 lockedLocalRot，但在协程里会用统一逻辑处理它
-        displayCoroutine = StartCoroutine(FlyToDisplayPosition(startPos, targetModelLocalRotation, startScale));
-    }
-
-    private void AlignVisualCenter(GameObject obj, Vector3 targetPos)
-    {
-        Renderer[] renderers = obj.GetComponentsInChildren<Renderer>();
-        if (renderers.Length == 0)
+        if (evidencePrefab == null)
         {
-            obj.transform.position = targetPos;
+            Debug.LogError("[Debug] 错误：你传进来的 Prefab 是空的！请检查 Evidence 物体上的插槽。");
             return;
         }
-        Bounds bounds = renderers[0].bounds;
-        foreach (var r in renderers) bounds.Encapsulate(r.bounds);
-        Vector3 offset = bounds.center - obj.transform.position;
-        obj.transform.position = targetPos - offset;
+
+        // 实例化
+        currentDisplayObject = Instantiate(evidencePrefab);
+        Debug.Log($"<color=cyan>[Debug] 2. 实例生成成功: {currentDisplayObject.name}</color>");
+
+        // 初始化页面
+        InitPages();
+
+        // 初始位置
+        Vector3 startPos = startTransform.position;
+        currentDisplayObject.transform.position = startPos;
+        currentDisplayObject.transform.rotation = Quaternion.identity;
+
+        // 设置层级
+        int layer = LayerMask.NameToLayer(displayLayer);
+        if (layer == -1)
+        {
+            Debug.LogWarning($"[Debug] 警告：找不到名为 '{displayLayer}' 的层级，将使用 Default。");
+            layer = 0;
+        }
+        SetLayerRecursively(currentDisplayObject, layer);
+
+        // 物理处理
+        DisablePhysicsForInteraction(currentDisplayObject);
+
+        if (displayCoroutine != null) StopCoroutine(displayCoroutine);
+        displayCoroutine = StartCoroutine(FlyToDisplayPosition(startPos));
     }
 
-    private IEnumerator FlyToDisplayPosition(Vector3 startPos, Quaternion lockedLocalRot, Vector3 startScale)
+    private void InitPages()
     {
-        if (currentDisplayObject == null || targetCamera == null) yield break;
+        pages.Clear();
+        currentPageIndex = 0;
 
-        Vector3 targetScale = startScale * displayScaleFactor;
+        Debug.Log($"[Debug] 3. 开始扫描子物体...");
+
+        foreach (Transform child in currentDisplayObject.transform)
+        {
+            pages.Add(child.gameObject);
+            child.gameObject.SetActive(false);
+            Debug.Log($"[Debug] - 发现页面: {child.name}");
+        }
+
+        if (pages.Count == 0)
+        {
+            Debug.LogWarning("[Debug] 没发现子物体。将父物体本身设为显示目标。");
+            pages.Add(currentDisplayObject);
+        }
+
+        if (pages.Count > 0)
+        {
+            pages[0].SetActive(true);
+            Debug.Log($"<color=green>[Debug] 4. 初始化完成。总页数: {pages.Count}，当前显示: {pages[0].name}</color>");
+        }
+    }
+
+    private IEnumerator FlyToDisplayPosition(Vector3 startPos)
+    {
+        Debug.Log("[Debug] 5. 飞行动画开始执行...");
         float elapsed = 0f;
-        float distance = Vector3.Distance(startPos, GetDisplayPosition());
-        float arcHeight = distance * arcHeightFactor;
+        Vector3 startScale = currentDisplayObject.transform.localScale;
+
+        if (displayScaleFactor <= 0) Debug.LogWarning("[Debug] 警告：displayScaleFactor 为 0，物体会不可见！");
 
         while (elapsed < flyDuration)
         {
@@ -92,29 +122,21 @@ public class EvidenceDisplayManager : MonoBehaviour
             float t = flyCurve.Evaluate(elapsed / flyDuration);
 
             Vector3 targetPos = GetDisplayPosition();
-            currentDisplayObject.transform.position = GetArcPosition(startPos, targetPos, t, arcHeight);
+            currentDisplayObject.transform.position = Vector3.Lerp(startPos, targetPos, t);
 
-            // ✅ 核心修正逻辑：
-            // 我们不再相信 lockedLocalRot 能包治百病，我们直接让它面朝相机方向
-            // 然后根据你说的“正对着”的需求，做一个统一的 Y 轴旋转
+            // 旋转适配
             float camY = targetCamera.transform.eulerAngles.y;
-            
-            // 重点：我们让模型先看向相机水平方向，再叠加一个 180 度（让正面对着玩家）
-            // 如果你的模型是侧着的，这里我们就根据你报纸的经验，统一加上 Y 轴的偏移
-            Quaternion baseRot = Quaternion.Euler(0, camY + 180f, 0); 
-            
-            // 如果 A 和 B 在场景里角度不同但面朝向一样，说明它们的 Mesh 轴向本身就有偏角
-            // 这里我们强行应用你调好的那个 LocalRotation 的 Y 轴偏值
-            currentDisplayObject.transform.rotation = baseRot * Quaternion.Euler(0, lockedLocalRot.eulerAngles.y, 0);
+            currentDisplayObject.transform.rotation = Quaternion.Euler(0, camY + 180f, 0) * Quaternion.Euler(0f, -90f, 20f);
 
-            currentDisplayObject.transform.localScale = Vector3.Lerp(startScale, targetScale, t);
+            currentDisplayObject.transform.localScale = Vector3.Lerp(startScale, startScale * displayScaleFactor, t);
             yield return null;
         }
 
-        followCoroutine = StartCoroutine(FollowCamera(lockedLocalRot));
+        Debug.Log($"<color=green>[Debug] 6. 飞行结束。当前坐标: {currentDisplayObject.transform.position}</color>");
+        followCoroutine = StartCoroutine(FollowCamera());
     }
 
-    private IEnumerator FollowCamera(Quaternion lockedLocalRot)
+    private IEnumerator FollowCamera()
     {
         while (currentDisplayObject != null && targetCamera != null)
         {
@@ -125,19 +147,38 @@ public class EvidenceDisplayManager : MonoBehaviour
             );
 
             float camY = targetCamera.transform.eulerAngles.y;
-            // 保持跟飞行结束时一致的逻辑
-            currentDisplayObject.transform.rotation = Quaternion.Euler(0, camY + 180f, 0) * Quaternion.Euler(0, lockedLocalRot.eulerAngles.y, 0);
+            currentDisplayObject.transform.rotation = Quaternion.Euler(0, camY + 180f, 0) * Quaternion.Euler(0f, -90f, 20f);
+
+            if (Input.GetMouseButtonDown(0)) CheckForPageTurn();
 
             yield return null;
         }
     }
 
-    // --- 其余函数（GetArcPosition, HideEvidence, GetDisplayPosition, DisablePhysics, SetLayerRecursively）保持不变 ---
-    private Vector3 GetArcPosition(Vector3 start, Vector3 end, float t, float height)
+    private void CheckForPageTurn()
     {
-        Vector3 linear = Vector3.Lerp(start, end, t);
-        float arc = Mathf.Sin(t * Mathf.PI) * height;
-        return linear + Vector3.up * arc;
+        // 1. 如果只有一页，直接不处理
+        if (pages.Count <= 1) return;
+
+        Ray ray = targetCamera.ScreenPointToRay(Input.mousePosition);
+        RaycastHit hit;
+
+        // 2. 只要射线撞到了“任何”东西（说明你点在证物上了）
+        if (Physics.Raycast(ray, out hit))
+        {
+            Debug.Log($"<color=yellow>[Debug] 强制翻页触发！撞击物体: {hit.transform.name}</color>");
+
+            // 直接执行翻页，不再做 IsChildOf 的层级判断
+            TurnToNextPage();
+        }
+    }
+
+    private void TurnToNextPage()
+    {
+        pages[currentPageIndex].SetActive(false);
+        currentPageIndex = (currentPageIndex + 1) % pages.Count;
+        pages[currentPageIndex].SetActive(true);
+        Debug.Log($"<color=yellow>[Debug] 翻页成功！当前第 {currentPageIndex + 1} 页</color>");
     }
 
     public void HideEvidence()
@@ -145,20 +186,23 @@ public class EvidenceDisplayManager : MonoBehaviour
         if (displayCoroutine != null) StopCoroutine(displayCoroutine);
         if (followCoroutine != null) StopCoroutine(followCoroutine);
         if (currentDisplayObject != null) Destroy(currentDisplayObject);
+        pages.Clear();
+        Debug.Log("[Debug] 证物已隐藏并销毁。");
     }
 
     private Vector3 GetDisplayPosition()
     {
+        // 计算目标位置，确保它在相机正前方
         return targetCamera.transform.position +
                targetCamera.transform.forward * forwardDistance +
                targetCamera.transform.up * upwardOffset +
                targetCamera.transform.right * sideOffset;
     }
 
-    private void DisablePhysics(GameObject obj)
+    private void DisablePhysicsForInteraction(GameObject obj)
     {
-        foreach (var col in obj.GetComponentsInChildren<Collider>()) col.enabled = false;
         foreach (var rb in obj.GetComponentsInChildren<Rigidbody>()) rb.isKinematic = true;
+        foreach (var col in obj.GetComponentsInChildren<Collider>()) col.enabled = true;
     }
 
     private void SetLayerRecursively(GameObject obj, int layer)

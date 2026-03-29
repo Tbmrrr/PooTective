@@ -130,8 +130,8 @@ public class Evidence : MonoBehaviour
             // 获取你在场景/Inspector里给这个子模型调好的角度（比如报纸的 0, 90, 0）
             Quaternion customRotation = displayModel.transform.localRotation;
 
-            // 传入展示管理器，确保飞出来的克隆体也是这个角度
-            EvidenceDisplayManager.Instance.ShowEvidence(displayModel, transform, customRotation);
+            // ：只传模型和起点（Transform）
+            EvidenceDisplayManager.Instance.ShowEvidence(displayModel, transform);
             isShowingEvidence = true;
         }
 
