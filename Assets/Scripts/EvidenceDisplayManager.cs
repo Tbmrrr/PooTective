@@ -9,8 +9,8 @@ public class EvidenceDisplayManager : MonoBehaviour
     public Camera targetCamera;
 
     [Header("展示位置设置")]
-    public float forwardDistance = 5f;
-    public float upwardOffset = 1.5f;
+    public float forwardDistance = 2f;
+    public float upwardOffset = 0.5f;
     public float sideOffset = 0f;
 
     [Header("动画参数")]
@@ -19,8 +19,7 @@ public class EvidenceDisplayManager : MonoBehaviour
     public AnimationCurve flyCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
 
     [Header("弧线参数")]
-    [Tooltip("弧线高度系数（根据距离自动计算）")]
-    public float arcHeightFactor = 0.2f; // ⭐ 推荐 0.15 ~ 0.3
+    public float arcHeightFactor = 0.2f;
 
     [Header("层级设置")]
     public string displayLayer = "UI";
@@ -40,66 +39,50 @@ public class EvidenceDisplayManager : MonoBehaviour
         if (targetCamera == null) targetCamera = Camera.main;
     }
 
-    public void ShowEvidence(GameObject evidencePrefab, Transform startTransform)
+    public void ShowEvidence(GameObject evidencePrefab, Transform startTransform, Quaternion targetModelLocalRotation)
     {
         if (currentDisplayObject != null) HideEvidence();
         if (evidencePrefab == null || startTransform == null) return;
 
         Vector3 startPos = startTransform.position;
-        Quaternion startRot = startTransform.rotation;
-
-        Debug.Log($"[证物展示] 起点位置: {startPos}");
-
         currentDisplayObject = Instantiate(evidencePrefab);
 
-        // ⭐ 对齐视觉中心（解决模型偏移问题）
+        // 初始化：先给它一个干净的旋转
+        currentDisplayObject.transform.rotation = Quaternion.identity;
+
         AlignVisualCenter(currentDisplayObject, startPos);
 
-        currentDisplayObject.transform.rotation = startRot;
-
-        Vector3 startScale = currentDisplayObject.transform.lossyScale;
+        Vector3 startScale = currentDisplayObject.transform.localScale;
 
         SetLayerRecursively(currentDisplayObject, LayerMask.NameToLayer(displayLayer));
         DisablePhysics(currentDisplayObject);
 
         if (displayCoroutine != null) StopCoroutine(displayCoroutine);
-        displayCoroutine = StartCoroutine(FlyToDisplayPosition(startPos, startRot, startScale));
+        
+        // 注意：这里我们依然带着 lockedLocalRot，但在协程里会用统一逻辑处理它
+        displayCoroutine = StartCoroutine(FlyToDisplayPosition(startPos, targetModelLocalRotation, startScale));
     }
 
-    /// <summary>
-    /// ⭐ 让模型“视觉中心”对齐起点
-    /// </summary>
     private void AlignVisualCenter(GameObject obj, Vector3 targetPos)
     {
         Renderer[] renderers = obj.GetComponentsInChildren<Renderer>();
-
         if (renderers.Length == 0)
         {
             obj.transform.position = targetPos;
             return;
         }
-
         Bounds bounds = renderers[0].bounds;
-        foreach (var r in renderers)
-        {
-            bounds.Encapsulate(r.bounds);
-        }
-
+        foreach (var r in renderers) bounds.Encapsulate(r.bounds);
         Vector3 offset = bounds.center - obj.transform.position;
         obj.transform.position = targetPos - offset;
     }
 
-    /// <summary>
-    /// ⭐ 带弧线的飞行动画
-    /// </summary>
-    private IEnumerator FlyToDisplayPosition(Vector3 startPos, Quaternion startRot, Vector3 startScale)
+    private IEnumerator FlyToDisplayPosition(Vector3 startPos, Quaternion lockedLocalRot, Vector3 startScale)
     {
         if (currentDisplayObject == null || targetCamera == null) yield break;
 
         Vector3 targetScale = startScale * displayScaleFactor;
         float elapsed = 0f;
-
-        // ⭐ 根据距离自动计算弧线高度
         float distance = Vector3.Distance(startPos, GetDisplayPosition());
         float arcHeight = distance * arcHeightFactor;
 
@@ -109,39 +92,29 @@ public class EvidenceDisplayManager : MonoBehaviour
             float t = flyCurve.Evaluate(elapsed / flyDuration);
 
             Vector3 targetPos = GetDisplayPosition();
-            Quaternion targetRot = GetDisplayRotation();
+            currentDisplayObject.transform.position = GetArcPosition(startPos, targetPos, t, arcHeight);
 
-            // ⭐ 使用弧线位置
-            currentDisplayObject.transform.position =
-                GetArcPosition(startPos, targetPos, t, arcHeight);
+            // ✅ 核心修正逻辑：
+            // 我们不再相信 lockedLocalRot 能包治百病，我们直接让它面朝相机方向
+            // 然后根据你说的“正对着”的需求，做一个统一的 Y 轴旋转
+            float camY = targetCamera.transform.eulerAngles.y;
+            
+            // 重点：我们让模型先看向相机水平方向，再叠加一个 180 度（让正面对着玩家）
+            // 如果你的模型是侧着的，这里我们就根据你报纸的经验，统一加上 Y 轴的偏移
+            Quaternion baseRot = Quaternion.Euler(0, camY + 180f, 0); 
+            
+            // 如果 A 和 B 在场景里角度不同但面朝向一样，说明它们的 Mesh 轴向本身就有偏角
+            // 这里我们强行应用你调好的那个 LocalRotation 的 Y 轴偏值
+            currentDisplayObject.transform.rotation = baseRot * Quaternion.Euler(0, lockedLocalRot.eulerAngles.y, 0);
 
-            currentDisplayObject.transform.rotation =
-                Quaternion.Slerp(startRot, targetRot, t);
-
-            currentDisplayObject.transform.localScale =
-                Vector3.Lerp(startScale, targetScale, t);
-
+            currentDisplayObject.transform.localScale = Vector3.Lerp(startScale, targetScale, t);
             yield return null;
         }
 
-        followCoroutine = StartCoroutine(FollowCamera());
-        StartCoroutine(IdleRotation());
+        followCoroutine = StartCoroutine(FollowCamera(lockedLocalRot));
     }
 
-    /// <summary>
-    /// ⭐ 弧线轨迹核心算法
-    /// </summary>
-    private Vector3 GetArcPosition(Vector3 start, Vector3 end, float t, float height)
-    {
-        Vector3 linear = Vector3.Lerp(start, end, t);
-
-        // 正弦弧线（中间最高）
-        float arc = Mathf.Sin(t * Mathf.PI) * height;
-
-        return linear + Vector3.up * arc;
-    }
-
-    private IEnumerator FollowCamera()
+    private IEnumerator FollowCamera(Quaternion lockedLocalRot)
     {
         while (currentDisplayObject != null && targetCamera != null)
         {
@@ -150,26 +123,28 @@ public class EvidenceDisplayManager : MonoBehaviour
                 GetDisplayPosition(),
                 Time.deltaTime * 5f
             );
+
+            float camY = targetCamera.transform.eulerAngles.y;
+            // 保持跟飞行结束时一致的逻辑
+            currentDisplayObject.transform.rotation = Quaternion.Euler(0, camY + 180f, 0) * Quaternion.Euler(0, lockedLocalRot.eulerAngles.y, 0);
+
             yield return null;
         }
     }
 
-    private IEnumerator IdleRotation()
+    // --- 其余函数（GetArcPosition, HideEvidence, GetDisplayPosition, DisablePhysics, SetLayerRecursively）保持不变 ---
+    private Vector3 GetArcPosition(Vector3 start, Vector3 end, float t, float height)
     {
-        while (currentDisplayObject != null)
-        {
-            currentDisplayObject.transform.Rotate(Vector3.up, 20f * Time.deltaTime, Space.World);
-            yield return null;
-        }
+        Vector3 linear = Vector3.Lerp(start, end, t);
+        float arc = Mathf.Sin(t * Mathf.PI) * height;
+        return linear + Vector3.up * arc;
     }
 
     public void HideEvidence()
     {
         if (displayCoroutine != null) StopCoroutine(displayCoroutine);
         if (followCoroutine != null) StopCoroutine(followCoroutine);
-
-        if (currentDisplayObject != null)
-            Destroy(currentDisplayObject);
+        if (currentDisplayObject != null) Destroy(currentDisplayObject);
     }
 
     private Vector3 GetDisplayPosition()
@@ -180,25 +155,15 @@ public class EvidenceDisplayManager : MonoBehaviour
                targetCamera.transform.right * sideOffset;
     }
 
-    private Quaternion GetDisplayRotation()
-    {
-        Vector3 dir = targetCamera.transform.position - GetDisplayPosition();
-        return dir != Vector3.zero ? Quaternion.LookRotation(-dir) : targetCamera.transform.rotation;
-    }
-
     private void DisablePhysics(GameObject obj)
     {
-        foreach (var col in obj.GetComponentsInChildren<Collider>())
-            col.enabled = false;
-
-        foreach (var rb in obj.GetComponentsInChildren<Rigidbody>())
-            rb.isKinematic = true;
+        foreach (var col in obj.GetComponentsInChildren<Collider>()) col.enabled = false;
+        foreach (var rb in obj.GetComponentsInChildren<Rigidbody>()) rb.isKinematic = true;
     }
 
     private void SetLayerRecursively(GameObject obj, int layer)
     {
         obj.layer = layer;
-        foreach (Transform child in obj.transform)
-            SetLayerRecursively(child.gameObject, layer);
+        foreach (Transform child in obj.transform) SetLayerRecursively(child.gameObject, layer);
     }
 }
