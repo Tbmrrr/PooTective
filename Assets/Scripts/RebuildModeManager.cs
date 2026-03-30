@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
-
+using System.Collections; // ✅ 必须加上这一行！
+using System.Collections.Generic; // 这个通常也有，用来支持 List
 /// <summary>
 /// 重建模式管理器：负责常态与重建模式切换、时间节点解锁及带旋转的坐标传送
 /// </summary>
@@ -153,9 +154,11 @@ public class RebuildModeManager : MonoBehaviour
         if (rebuildModePanel != null) rebuildModePanel.SetActive(true);
         if (normalUIAbilityIcon != null) normalUIAbilityIcon.SetActive(false);
 
-        // 进入模式时，默认初始化到节点 1 的位置和朝向
-        OnNode1Clicked();
+        // ✅ 修改点：不要直接解锁，改为调用协程延时解锁
+        // 这样可以躲过 FPS 脚本在 OnEnable 里的强制锁定
+        StartCoroutine(UnlockCursorForUI());
 
+        OnNode1Clicked();
         UpdateNode2Visuals(hasUnlockedNode2);
 
         if (TakenOutEvidenceUI.Instance != null && !string.IsNullOrEmpty(TakenOutEvidenceUI.Instance.currentEvidenceID))
@@ -166,10 +169,18 @@ public class RebuildModeManager : MonoBehaviour
 
     private void ExitRebuildMode()
     {
+        // 停止所有正在运行的解锁协程，防止干扰退出逻辑
+        StopAllCoroutines();
+
         if (rebuildFPSPlayer != null) rebuildFPSPlayer.SetActive(false);
         if (mainPlayer != null) mainPlayer.SetActive(true);
         if (normalHUDPanel != null) normalHUDPanel.SetActive(true);
         if (rebuildModePanel != null) rebuildModePanel.SetActive(false);
+
+        // ✅ 恢复正常模式的锁定状态
+        Time.timeScale = 1f;
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
 
         RefreshAbilityIcon();
 
@@ -177,6 +188,20 @@ public class RebuildModeManager : MonoBehaviour
         {
             TakenOutEvidenceUI.Instance.gameObject.SetActive(false);
         }
+    }
+
+    // ✅ 新增这个协程：强力解锁鼠标
+    private IEnumerator UnlockCursorForUI()
+    {
+        // 等待两帧，确保所有物体的 Start 和 OnEnable 都跑完了
+        yield return null;
+        yield return null;
+
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+
+        // 如果你发现鼠标还是会跳走，可以尝试在这里禁用 FPS 脚本的转动组件
+        // rebuildFPSPlayer.GetComponent<FirstPersonController>().enabled = false;
     }
 
     #endregion

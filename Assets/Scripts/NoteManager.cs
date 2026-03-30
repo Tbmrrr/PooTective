@@ -127,13 +127,36 @@ public class NoteManager : MonoBehaviour
     }
 
     // --- 取出功能逻辑 (已对齐员工和证物) ---
-    private void OnTakeOutClicked()
+    public void OnTakeOutClicked()
     {
-        if (selectedData.evidenceID != null && TakenOutEvidenceUI.Instance != null)
+        // 获取当前选中的数据 ID
+        string id = selectedData.evidenceID;
+
+        // 1. 获取 UI 脚本（先看单例，没有就去场景里现抓）
+        TakenOutEvidenceUI targetUI = TakenOutEvidenceUI.Instance;
+        if (targetUI == null)
         {
-            currentTakenOutID = selectedData.evidenceID;
-            TakenOutEvidenceUI.Instance.TakeOut(selectedData);
+            targetUI = FindObjectOfType<TakenOutEvidenceUI>(true);
+        }
+
+        Debug.Log($"<color=cyan>[执行检查]</color> ID: {id}, UI 目标是否存在: {targetUI != null}");
+
+        // 2. 只有 ID 存在且找到了 UI 脚本，才执行
+        if (!string.IsNullOrEmpty(id) && targetUI != null)
+        {
+            currentTakenOutID = id;
+
+            // ✅ 关键：如果物体是隐藏的，必须先显示它，否则协程和代码都不跑
+            targetUI.gameObject.SetActive(true);
+
+            targetUI.TakeOut(selectedData);
             RefreshTakeOutButtonState();
+
+            Debug.Log("<color=green>[取出动作已发出]</color>");
+        }
+        else
+        {
+            Debug.LogError("无法取出：请检查场景中是否有 TakenOutEvidenceUI 物体，或者它是否被意外 Destroy 了。");
         }
     }
 
@@ -471,5 +494,12 @@ public class NoteManager : MonoBehaviour
                 break;
             }
         }
+    }
+
+    // 在 NoteManager.cs 中添加
+    public bool HasEvidence(string id)
+    {
+        // 检查已收集的证物列表中是否已有该 ID
+        return collectedEvidence.Exists(e => e.evidenceID == id);
     }
 }

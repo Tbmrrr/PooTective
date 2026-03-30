@@ -3,43 +3,60 @@ using System.Collections;
 
 public class DoorInteractable : MonoBehaviour
 {
-    [Header("动画设置")]
+    [Header("组件引用")]
     public Animator doorAnimator;
-    private string animStateName = "opendoor";
-    private string speedParam = "AnimSpeed";
-    public float autoCloseDelay = 3f;
+    public GameObject interactPrompt;
 
-    [Header("状态设置")]
+    [Header("设置")]
+    public float interactDistance = 2.5f;
     public bool isOpen = false;
     public bool isLocked = false;
     public string lockedHint = "门锁住了。";
+    public float autoCloseDelay = 3f; // 自动关闭延迟
 
-    [Header("交互提示")]
-    public GameObject interactPrompt;
-
-    private Coroutine closeCoroutine;
-    private Coroutine waitAnimFinishCoroutine; // 新增：用于等待关闭动画结束的协程
+    private string animStateName = "opendoor";
     private MeshCollider doorMeshCollider;
+    private Transform playerTransform;
+    private Coroutine autoCloseCoroutine;
 
     private void Start()
     {
-        if (interactPrompt != null) interactPrompt.SetActive(false);
-        // 初始状态下，确保动画速度为0且在起始帧
-        if (doorAnimator != null)
-        {
-            doorAnimator.SetFloat(speedParam, 0);
-        }
         doorMeshCollider = GetComponentInChildren<MeshCollider>();
+        GameObject p = GameObject.FindGameObjectWithTag("Player");
+        if (p != null) playerTransform = p.transform;
     }
 
+    private void Update()
+    {
+        if (playerTransform == null)
+        {
+            if (Camera.main != null) playerTransform = Camera.main.transform;
+            else return;
+        }
+
+        float dist = Vector3.Distance(transform.position, playerTransform.position);
+
+        // 只有当门没开时，显示按 E 提示
+        bool shouldShow = dist <= interactDistance && !isOpen;
+        ShowPrompt(shouldShow);
+
+        // 距离感应交互（防止射线检测失效时的保底）
+        if (shouldShow && Input.GetKeyDown(KeyCode.E))
+        {
+            if (Time.timeScale > 0 && (NoteManager.Instance == null || !NoteManager.Instance.notePanel.activeSelf))
+            {
+                OnInteract();
+            }
+        }
+    }
+
+    // ✅ 核心接口：供外部脚本（如 PlayerInteraction）调用
     public void OnInteract()
     {
         if (isLocked && !isOpen)
         {
             if (DialogueManager.Instance != null)
-            {
                 DialogueManager.Instance.StartDialogue(new string[] { "侦探：" + lockedHint }, null);
-            }
             return;
         }
 
@@ -50,89 +67,55 @@ public class DoorInteractable : MonoBehaviour
     private void OpenDoor()
     {
         isOpen = true;
+        ExecuteAnimation(1f, 0f); // 速度1，从0开始播
 
-        // 如果之前正在等待关闭动画结束，强行停止
-        if (waitAnimFinishCoroutine != null) StopCoroutine(waitAnimFinishCoroutine);
+        // 开门时，将碰撞体设为 Trigger，方便玩家穿过
+        if (doorMeshCollider != null) doorMeshCollider.isTrigger = true;
 
-        // ✅ 判断是否在重建模式
-        bool isRebuild = RebuildModeManager.Instance != null && RebuildModeManager.Instance.isRebuildModeActive;
+        // 开启自动关闭计时器
+        if (autoCloseCoroutine != null) StopCoroutine(autoCloseCoroutine);
+        autoCloseCoroutine = StartCoroutine(AutoCloseTimer());
 
-        if (doorMeshCollider != null)
-        {
-            if (isRebuild)
-            {
-                // 重建模式下直接禁用，确保万无一失
-                doorMeshCollider.enabled = false;
-            }
-            else
-            {
-                // 正常模式设为触发器，允许穿过
-                doorMeshCollider.isTrigger = true;
-                doorMeshCollider.enabled = true;
-            }
-        }
-
-        if (doorAnimator != null)
-        {
-            doorAnimator.SetFloat(speedParam, 1f);
-            // 从当前时间点开始正向播放，或者从0开始
-            doorAnimator.Play(animStateName, 0, Mathf.Clamp01(doorAnimator.GetCurrentAnimatorStateInfo(0).normalizedTime));
-        }
-
-        if (closeCoroutine != null) StopCoroutine(closeCoroutine);
-        closeCoroutine = StartCoroutine(AutoCloseTimer());
+        Debug.Log("<color=green>门已开启，3秒后自动关闭</color>");
     }
 
     private void CloseDoor()
     {
         isOpen = false;
+        ExecuteAnimation(-1f, 1f); // 速度-1，从末尾倒着播
 
-        if (doorAnimator != null)
-        {
-            doorAnimator.SetFloat(speedParam, -1f);
-            // 从当前动画位置开始反向播放
-            float currentTime = doorAnimator.GetCurrentAnimatorStateInfo(0).normalizedTime;
-            doorAnimator.Play(animStateName, 0, Mathf.Clamp01(currentTime));
-        }
+        // 关门瞬间恢复物理实体，防止玩家穿墙
+        if (doorMeshCollider != null) doorMeshCollider.isTrigger = false;
 
-        // ✅ 核心修改：不要在这里直接恢复碰撞体，启动协程等待
-        if (waitAnimFinishCoroutine != null) StopCoroutine(waitAnimFinishCoroutine);
-        waitAnimFinishCoroutine = StartCoroutine(WaitCloseAnimToFinish());
+        if (autoCloseCoroutine != null) StopCoroutine(autoCloseCoroutine);
 
-        if (closeCoroutine != null) StopCoroutine(closeCoroutine);
+        Debug.Log("<color=yellow>门已关闭</color>");
     }
 
-    // ✅ 新增：等待关闭动画播放完的协程
-    IEnumerator WaitCloseAnimToFinish()
+    private void ExecuteAnimation(float speed, float startTime)
     {
-        if (doorAnimator == null) yield break;
-
-        // 等待直到动画的 normalizedTime 回到起始点 (因为是反向播放速度为-1)
-        // normalizedTime 在反向播放时会递减
-        while (doorAnimator.GetCurrentAnimatorStateInfo(0).normalizedTime > 0.01f)
+        if (doorAnimator != null)
         {
-            yield return null;
+            doorAnimator.SetFloat("AnimSpeed", speed);
+            doorAnimator.Play(animStateName, 0, startTime);
         }
+    }
 
-        // 动画基本回到了起始位置，此时恢复碰撞体
-        if (doorMeshCollider != null)
+    // ✅ 补回失踪的 ShowPrompt 接口
+    public void ShowPrompt(bool show)
+    {
+        if (interactPrompt != null && interactPrompt.activeSelf != show)
         {
-            doorMeshCollider.enabled = true;
-            doorMeshCollider.isTrigger = false;
-            Debug.Log("门已完全关闭，碰撞体已恢复。");
+            interactPrompt.SetActive(show);
         }
-
-        waitAnimFinishCoroutine = null;
     }
 
     IEnumerator AutoCloseTimer()
     {
         yield return new WaitForSeconds(autoCloseDelay);
-        if (isOpen) CloseDoor();
-    }
-
-    public void ShowPrompt(bool show)
-    {
-        if (interactPrompt != null) interactPrompt.SetActive(show);
+        if (isOpen)
+        {
+            CloseDoor();
+        }
     }
 }
