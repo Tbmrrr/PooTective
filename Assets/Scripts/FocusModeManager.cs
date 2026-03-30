@@ -1,44 +1,48 @@
 using UnityEngine;
+using System.Collections.Generic; // 用于存储拐点
 
 public class FocusModeManager : MonoBehaviour
 {
     public static FocusModeManager Instance { get; private set; }
 
     [Header("画面效果引用")]
-    public DogVisionEffect cameraEffect; // 拖入主相机上的渲染脚本
+    public DogVisionEffect cameraEffect;
 
     [Header("UI 引用")]
-    [Tooltip("平时显示的常规UI面板（例如：任务列表、地图）")]
     public GameObject normalHUDPanel;
-
-    [Tooltip("进入专注模式后显示的特殊图片")]
     public GameObject closefoucsmodeimage;
 
     [Header("场景线索")]
-    [Tooltip("专注模式下才显示的线索物体（例如：Poo）")]
-    public GameObject pooObject; // <--- 新增：拖入场景中的Poo物体
+    public GameObject pooObject;
+
+    [Header("导向线可视化设置 (新增)")]
+    [Tooltip("拖入带有 LineRenderer 的物体")]
+    public LineRenderer guideLine;
+
+    [Tooltip("拖入存放所有路径拐点(子物体)的父物体(e.g., FocusPath_Poo)")]
+    public Transform pooPathRoot; // <--- 这里是关键！
 
     [Header("状态")]
     public bool isFocusModeActive = false;
 
     private void Awake()
     {
-        // 单例模式
         if (Instance == null) Instance = this;
         else Destroy(gameObject);
     }
 
     void Start()
     {
-        // 初始化状态：确保游戏开始时常态UI开启，专注图片和线索物体关闭
         if (normalHUDPanel != null) normalHUDPanel.SetActive(true);
         if (closefoucsmodeimage != null) closefoucsmodeimage.SetActive(false);
-        if (pooObject != null) pooObject.SetActive(false); // <--- 新增：初始隐藏Poo
+        if (pooObject != null) pooObject.SetActive(false);
+
+        // 初始隐藏导向线物体
+        if (guideLine != null) guideLine.gameObject.SetActive(false);
     }
 
     void Update()
     {
-        // 监听 F 键切换模式
         if (Input.GetKeyDown(KeyCode.F))
         {
             ToggleFocusMode();
@@ -49,16 +53,13 @@ public class FocusModeManager : MonoBehaviour
     {
         isFocusModeActive = !isFocusModeActive;
 
-        // 1. 处理 Shader 渲染效果
         if (cameraEffect != null)
         {
             cameraEffect.isRendering = isFocusModeActive;
         }
 
-        // 2. 处理 UI 和 场景物体的切换逻辑
         HandleUISwitch();
 
-        // 3. 处理其他逻辑（可选）
         if (isFocusModeActive)
         {
             ApplyFocusLogic();
@@ -71,25 +72,51 @@ public class FocusModeManager : MonoBehaviour
 
     private void HandleUISwitch()
     {
-        if (isFocusModeActive)
+        bool active = isFocusModeActive;
+
+        if (normalHUDPanel != null) normalHUDPanel.SetActive(!active);
+        if (closefoucsmodeimage != null) closefoucsmodeimage.SetActive(active);
+        if (pooObject != null) pooObject.SetActive(active);
+
+        // ✅ 可视化控制导向线
+        if (guideLine != null)
         {
-            // 进入专注模式：关闭常规HUD，打开专注模式图片和Poo
-            if (normalHUDPanel != null) normalHUDPanel.SetActive(false);
-            if (closefoucsmodeimage != null) closefoucsmodeimage.SetActive(true);
-            if (pooObject != null) pooObject.SetActive(true); // <--- 新增：进入模式显示Poo
+            // 只有打开专注模式，且你有 Poo 的路径根节点时才显示线
+            bool canShowLine = active && pooPathRoot != null;
+            guideLine.gameObject.SetActive(canShowLine);
+
+            if (canShowLine)
+            {
+                GenerateLineFromPathRoot(); // ✅ 动态生成线
+            }
         }
-        else
+    }
+
+    // ✅ 新增的核心方法：读取子物体坐标连线
+    private void GenerateLineFromPathRoot()
+    {
+        if (guideLine == null || pooPathRoot == null) return;
+
+        // 1. 获取所有子物体的位置（不包括父物体自己）
+        List<Vector3> points = new List<Vector3>();
+        foreach (Transform child in pooPathRoot)
         {
-            // 退出专注模式：恢复常规HUD，关闭专注模式图片和Poo
-            if (normalHUDPanel != null) normalHUDPanel.SetActive(true);
-            if (closefoucsmodeimage != null) closefoucsmodeimage.SetActive(false);
-            if (pooObject != null) pooObject.SetActive(false); // <--- 新增：退出模式隐藏Poo
+            points.Add(child.position);
         }
+
+        // 2. 如果拐点太少，无法连线，直接退出
+        if (points.Count < 2) return;
+
+        // 3. 将坐标赋给 LineRenderer
+        guideLine.positionCount = points.Count;
+        guideLine.SetPositions(points.ToArray());
+
+        Debug.Log($"导向线已显现，共有 {points.Count} 个拐点。起点：{points[0]}");
     }
 
     void ApplyFocusLogic()
     {
-        Debug.Log("进入专注模式：天蓝色滤镜已开启，线索物体已显现。");
+        Debug.Log("进入专注模式：天蓝色滤镜已开启，导向线已显现。");
     }
 
     void ResetFocusLogic()

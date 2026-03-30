@@ -18,7 +18,6 @@ public class SearchPanelManager : MonoBehaviour
     [Header("右侧：搜索区域")]
     public Text searchResultText;
     public Image closeHintImage;
-    // --- 新增：搜索框内显示的占位/残留文字 ---
     public Text dropZonePlaceholderText;
 
     [Header("拖拽Ghost预制体")]
@@ -45,7 +44,7 @@ public class SearchPanelManager : MonoBehaviour
     private Vector3 lastMouseDownPos;
     private bool isDraggingThresholdPassed = false;
 
-    // --- 新增状态：控制单次搜索 ---
+    // 状态控制
     private bool isSearchUsed = false;
 
     private void Awake()
@@ -70,7 +69,7 @@ public class SearchPanelManager : MonoBehaviour
     {
         if (!searchPanel.activeSelf) return;
 
-        // --- 新增：如果已经搜过了，就不再处理拖拽 ---
+        // 如果已经搜过了，就不再处理拖拽
         if (isSearchUsed) return;
 
         HandleKeywordDrag();
@@ -83,11 +82,10 @@ public class SearchPanelManager : MonoBehaviour
         currentEvidenceID = evidenceData.evidenceID;
         searchedKeywordsThisSession.Clear();
 
-        // --- 新增：打开时重置状态 ---
         isSearchUsed = false;
         if (dropZonePlaceholderText != null)
         {
-            dropZonePlaceholderText.text = "将关键词拖入此处"; // 这里可以改成你想要的初始提示
+            dropZonePlaceholderText.text = "将关键词拖入此处";
             dropZonePlaceholderText.color = Color.white;
         }
 
@@ -112,25 +110,7 @@ public class SearchPanelManager : MonoBehaviour
         }
         draggingKeyword = null;
 
-        string appendText = "";
-        if (currentKeywords != null)
-        {
-            foreach (var kw in currentKeywords)
-            {
-                if (searchedKeywordsThisSession.Contains(kw.keyword)
-                    && !string.IsNullOrEmpty(kw.descAppendOnSearch))
-                {
-                    appendText += "\n" + kw.descAppendOnSearch;
-                }
-            }
-        }
-
-        if (!string.IsNullOrEmpty(appendText))
-        {
-            string newDesc = currentEvidenceData.desc + appendText;
-            NoteManager.Instance.UpdateEvidenceDescDirectly(currentEvidenceID, newDesc);
-        }
-
+        // ✅ 原有的 append 拼凑逻辑已删除，因为我们改用了即时全量更新
         searchedKeywordsThisSession.Clear();
         searchPanel.SetActive(false);
 
@@ -239,15 +219,12 @@ public class SearchPanelManager : MonoBehaviour
         activeDragGhost = Instantiate(dragGhostPrefab, rootCanvas.transform);
         activeDragGhost.transform.SetAsLastSibling();
 
-        // --- 新增：让拖拽出的 Ghost 显示正确的词 ---
         TMP_Text ghostText = activeDragGhost.GetComponentInChildren<TMP_Text>();
         if (ghostText != null) ghostText.text = keyword;
 
         activeDragGhost.transform.localScale = Vector3.one;
         activeDragGhost.GetComponent<RectTransform>().position = Input.mousePosition;
         activeDragGhost.layer = LayerMask.NameToLayer("UI");
-
-        Debug.Log($"<color=green>[Fix] Ghost 现在生成在: {activeDragGhost.transform.parent.name}</color>");
     }
 
     private void EndDrag()
@@ -279,22 +256,36 @@ public class SearchPanelManager : MonoBehaviour
         {
             if (kw.keyword == keyword)
             {
-                // --- 修改：显示搜索结果并禁用进一步搜索 ---
                 if (searchResultText != null) searchResultText.text = kw.searchResult;
 
-                // --- 新增：让搜索框保留该文字 ---
                 if (dropZonePlaceholderText != null)
                 {
                     dropZonePlaceholderText.text = keyword;
-                    dropZonePlaceholderText.color = highlightColor; // 视觉反馈
+                    dropZonePlaceholderText.color = highlightColor;
+                }
+
+                // ✅ 核心业务逻辑修改点：全量更新 NoteManager 里的缓存描述
+                if (!string.IsNullOrEmpty(kw.newDescriptionOnSearch))
+                {
+                    NoteManager.Instance.UpdateEvidenceDescDirectly(currentEvidenceID, kw.newDescriptionOnSearch);
+
+                    // 开启“线索更新”标记（需要找到场景中的 Evidence 脚本）
+                    Evidence[] allEvidences = FindObjectsOfType<Evidence>();
+                    foreach (var ev in allEvidences)
+                    {
+                        if (ev.evidenceID == currentEvidenceID)
+                        {
+                            ev.description = kw.newDescriptionOnSearch; // 同步实体数据
+                            ev.SetUpdateFlag(); // 打上标签
+                            break;
+                        }
+                    }
                 }
 
                 searchedKeywordsThisSession.Add(keyword);
-                isSearchUsed = true; // 锁定搜索功能
-                                     
-                NoteManager.Instance.MarkSearchAsCompleted(currentEvidenceID);
+                isSearchUsed = true;
 
-                Debug.Log($"<color=yellow>搜索成功并锁定：{keyword}</color>");
+                NoteManager.Instance.MarkSearchAsCompleted(currentEvidenceID);
                 return;
             }
         }

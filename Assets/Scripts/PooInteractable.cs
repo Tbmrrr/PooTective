@@ -3,48 +3,79 @@ using UnityEngine;
 public class PooInteractable : MonoBehaviour
 {
     [Header("UI 提示 (World Space)")]
-    public GameObject rPromptObject; // 拖入那个写着“按R进入模式”的图片物体
+    public GameObject rPromptObject;
+
+    [Header("引用的证物组件")]
+    public Evidence evidenceComponent;
+
+    private bool isPlayerInZone = false;
+    private bool hasAddedToNote = false; // 内部记录，防止单次运行重复加背包
 
     void Start()
     {
-        // 初始隐藏提示
         if (rPromptObject != null) rPromptObject.SetActive(false);
+        if (evidenceComponent == null) evidenceComponent = GetComponent<Evidence>();
     }
 
-    // 当玩家进入触发区
-    private void OnTriggerEnter(Collider other)
+    void Update()
     {
-        // 只有在专注模式下，才显示“按R”的提示
-        if (other.CompareTag("Player") && FocusModeManager.Instance.isFocusModeActive)
+        if (isPlayerInZone && Input.GetKeyDown(KeyCode.R))
         {
-            if (rPromptObject != null) rPromptObject.SetActive(true);
+            if (FocusModeManager.Instance != null && FocusModeManager.Instance.isFocusModeActive)
+            {
+                OnPooInteract();
+            }
         }
     }
 
-    // 当玩家离开触发区
+    private void OnTriggerEnter(Collider other)
+    {
+        if (other.CompareTag("Player"))
+        {
+            isPlayerInZone = true;
+            if (FocusModeManager.Instance != null && FocusModeManager.Instance.isFocusModeActive)
+            {
+                if (rPromptObject != null) rPromptObject.SetActive(true);
+            }
+        }
+    }
+
     private void OnTriggerExit(Collider other)
     {
         if (other.CompareTag("Player"))
         {
+            isPlayerInZone = false;
             if (rPromptObject != null) rPromptObject.SetActive(false);
         }
     }
 
-    // 被 PlayerInteraction 调用
     public void OnPooInteract()
     {
-        // 只有在还没解锁过的时候，才通过 Poo 触发
-        if (RebuildModeManager.Instance != null && !RebuildModeManager.Instance.hasUnlockedRebuild)
+        // 1. 重建模式逻辑：直接调用你之前能跑通的方法
+        if (RebuildModeManager.Instance != null)
         {
-            Debug.Log("第一次发现线索，解锁重建模式！");
+            // 统一调用 UnlockAndEnter，它内部应该已经处理了“已解锁则直接进入”的逻辑
             RebuildModeManager.Instance.UnlockAndEnter();
+        }
 
-            // 交互后隐藏 Poo 的 R 键提示
-            if (rPromptObject != null) rPromptObject.SetActive(false);
+        // 2. 背包逻辑：只在第一次交互时添加
+        if (!hasAddedToNote && evidenceComponent != null)
+        {
+            if (InteractionHistoryManager.Instance != null)
+            {
+                InteractionHistoryManager.Instance.RecordEvidenceInteraction(evidenceComponent.evidenceID);
+            }
+
+            if (NoteManager.Instance != null)
+            {
+                NoteManager.Instance.AddEvidence(evidenceComponent);
+            }
+
+            hasAddedToNote = true; // 设为 true 后，下次按 R 就不会再进这个 if 了
+            Debug.Log($"[Poo] {evidenceComponent.evidenceName} 已加入背包。");
         }
     }
 
-    // 提供一个方法给 FocusModeManager，防止关闭模式后提示还亮着
     private void OnDisable()
     {
         if (rPromptObject != null) rPromptObject.SetActive(false);

@@ -43,7 +43,7 @@ public class NoteManager : MonoBehaviour
 
     [Header("取出功能 (新增)")]
     public Button takeOutBtn; // 右侧详情面板里的“取出”按钮
-    private string currentTakenOutID = null; // 当前被取出的证物ID
+    private string currentTakenOutID = null; // 当前被取出的证物/角色ID
 
     private List<EvidenceData> collectedEvidence = new List<EvidenceData>();
     private EvidenceData selectedData;
@@ -60,7 +60,7 @@ public class NoteManager : MonoBehaviour
     // 是否正处于搜索模式（防止 C 键 and N 键冲突）
     private bool isSearchModeActive = false;
 
-    // ✅ 新增内部状态：记录已经完成过搜索的证物 ID，防止重复搜索
+    // ✅ 记录已经完成过搜索的证物 ID，防止重复搜索
     private HashSet<string> completedSearchIDs = new HashSet<string>();
 
     [System.Serializable]
@@ -91,7 +91,7 @@ public class NoteManager : MonoBehaviour
         if (characterTabBtn != null) characterTabBtn.onClick.AddListener(() => SwitchTab(NoteTab.Character));
         if (presentSubmitBtn != null) presentSubmitBtn.onClick.AddListener(OnSubmitToNPC);
 
-        // 绑定新功能：取出按钮
+        // 绑定功能：取出按钮
         if (takeOutBtn != null) takeOutBtn.onClick.AddListener(OnTakeOutClicked);
     }
 
@@ -112,8 +112,8 @@ public class NoteManager : MonoBehaviour
         // 背包打开时，C 键进入搜索模式
         if (notePanel.activeSelf && Input.GetKeyDown(KeyCode.C))
         {
-            // ✅ 逻辑增强：只有未完成搜索的证物才能进入搜索模式
-            if (selectedData.evidenceID != null && !completedSearchIDs.Contains(selectedData.evidenceID))
+            // 只有在证物栏、且未完成搜索的证物才能进入搜索模式
+            if (currentTab == NoteTab.Evidence && selectedData.evidenceID != null && !completedSearchIDs.Contains(selectedData.evidenceID))
             {
                 TryEnterSearchMode();
             }
@@ -126,7 +126,7 @@ public class NoteManager : MonoBehaviour
         }
     }
 
-    // --- 新增取出功能逻辑 ---
+    // --- 取出功能逻辑 (已对齐员工和证物) ---
     private void OnTakeOutClicked()
     {
         if (selectedData.evidenceID != null && TakenOutEvidenceUI.Instance != null)
@@ -143,28 +143,26 @@ public class NoteManager : MonoBehaviour
         RefreshTakeOutButtonState();
     }
 
-    // --- 修改 2：完善按钮显示逻辑 (增加重建模式判定) ---
+    // --- 完善按钮显示逻辑 (员工档案现在也能取出) ---
     private void RefreshTakeOutButtonState()
     {
         if (takeOutBtn == null) return;
 
         // 严谨的显示判定：
-        // 1. 必须在证物页签
-        // 2. 必须处于【重建模式】(RebuildModeManager.Instance.isRebuildModeActive)
-        // 3. 必须【已经选中】了一个有效的证物 ID
-        // 4. 当前屏幕上【没有】正在悬浮的证物
+        // 1. 必须处于【重建模式】(RebuildModeManager.Instance.isRebuildModeActive)
+        // 2. 必须【已经选中】了一个有效的 ID (无论是证物还是员工)
+        // 3. 当前屏幕上【没有】正在悬浮的物品
 
         bool isRebuildMode = (RebuildModeManager.Instance != null && RebuildModeManager.Instance.isRebuildModeActive);
 
-        bool canShow = (currentTab == NoteTab.Evidence) &&
-                       isRebuildMode &&
+        bool canShow = isRebuildMode &&
                        (!string.IsNullOrEmpty(selectedData.evidenceID)) &&
                        string.IsNullOrEmpty(currentTakenOutID);
 
         takeOutBtn.gameObject.SetActive(canShow);
     }
 
-    // 尝试进入搜索模式（当前选中证物需要有搜索关键词）
+    // 尝试进入搜索模式
     private void TryEnterSearchMode()
     {
         if (selectedEvidenceComponent == null || !selectedEvidenceComponent.HasSearchFeature)
@@ -173,7 +171,6 @@ public class NoteManager : MonoBehaviour
             return;
         }
 
-        // ✅ 逻辑增强：如果 ID 已经在完成列表中，拦截进入
         if (completedSearchIDs.Contains(selectedData.evidenceID))
         {
             return;
@@ -187,35 +184,32 @@ public class NoteManager : MonoBehaviour
 
         isSearchModeActive = true;
 
-        // 隐藏背包面板（但不走 ToggleNote 完整流程，避免重置状态）
+        // 隐藏背包面板
         if (notePanel != null) notePanel.SetActive(false);
 
         SearchPanelManager.Instance.OpenSearchPanel(selectedData, selectedEvidenceComponent.searchableKeywords);
     }
 
-    // ✅ 新增：由 SearchPanelManager 在成功匹配关键词后调用
+    // 由 SearchPanelManager 在成功匹配关键词后调用
     public void MarkSearchAsCompleted(string evidenceID)
     {
         if (!completedSearchIDs.Contains(evidenceID))
         {
             completedSearchIDs.Add(evidenceID);
-            // 立即关闭当前的搜索提示图
             if (searchHintObject != null) searchHintObject.SetActive(false);
         }
     }
 
-    // 搜索面板关闭后回调（由 SearchPanelManager 调用）
+    // 搜索面板关闭后回调
     public void OnSearchPanelClosed(string evidenceID)
     {
         isSearchModeActive = false;
 
-        // 重新打开背包面板，恢复到上次查看的证物
         if (notePanel != null) notePanel.SetActive(true);
 
-        // 刷新列表和详情（描述可能已更新）
         RefreshList();
 
-        // 找到对应的最新数据重新显示详情
+        // 找到最新数据重新显示详情
         foreach (var data in collectedEvidence)
         {
             if (data.evidenceID == evidenceID)
@@ -250,10 +244,10 @@ public class NoteManager : MonoBehaviour
         if (searchHintObject != null) searchHintObject.SetActive(false);
 
         selectedEvidenceComponent = null;
-        selectedData = default; // 清空当前选中的数据，防止页签切换后按钮还留着
+        selectedData = default;
 
         RefreshList();
-        RefreshTakeOutButtonState(); // 此时 selectedData 为空，按钮会消失
+        RefreshTakeOutButtonState();
 
         if (scrollRect != null) scrollRect.verticalNormalizedPosition = 1f;
     }
@@ -278,9 +272,7 @@ public class NoteManager : MonoBehaviour
 
         if (isActive)
         {
-            currentTab = NoteTab.Evidence;
-
-            // 【关键】每次打开笔记本，先清空上一次选中的数据，防止按钮“残留”
+            // 每次打开笔记本，先清空上一次选中的数据
             selectedData = default;
             selectedEvidenceComponent = null;
 
@@ -290,7 +282,6 @@ public class NoteManager : MonoBehaviour
                 RebuildModeManager.Instance.rebuildModePanel.SetActive(false);
             }
 
-            // 刷新列表和按钮状态（此时 selectedData 为空，取出按钮必然隐藏）
             SwitchTab(currentTab);
 
             Time.timeScale = 0;
@@ -316,7 +307,6 @@ public class NoteManager : MonoBehaviour
                     RebuildModeManager.Instance.rebuildModePanel.SetActive(true);
                 }
 
-                // 重建模式下 icon 依然存在
                 if (!string.IsNullOrEmpty(currentTakenOutID) && TakenOutEvidenceUI.Instance != null)
                 {
                     TakenOutEvidenceUI.Instance.gameObject.SetActive(true);
@@ -330,7 +320,6 @@ public class NoteManager : MonoBehaviour
                     RebuildModeManager.Instance.rebuildModePanel.SetActive(false);
                 }
 
-                // 退出重建模式，icon 消失
                 if (TakenOutEvidenceUI.Instance != null)
                 {
                     TakenOutEvidenceUI.Instance.gameObject.SetActive(false);
@@ -368,7 +357,6 @@ public class NoteManager : MonoBehaviour
                 EvidenceData capturedData = data;
 
                 btn.onClick.AddListener(() => {
-                    Debug.Log("点击了项目按钮: " + capturedData.name);
                     ShowDetail(capturedData);
                 });
             }
@@ -391,10 +379,18 @@ public class NoteManager : MonoBehaviour
         if (detailImage != null) detailImage.sprite = data.fullImage;
         if (detailName != null) detailName.text = data.name;
 
-        // 线索更新提示逻辑
-        if (pendingUpdateIDs.Contains(data.evidenceID))
+        // 这里的描述显示逻辑：优先获取场景中 Evidence 组件的 GetDescriptionForUI (如果存在)
+        selectedEvidenceComponent = FindEvidenceComponentByID(data.evidenceID);
+
+        if (selectedEvidenceComponent != null)
         {
-            if (detailDesc != null) detailDesc.text = "【线索更新】\n" + data.desc;
+            // 如果场景里有对应的 Evidence 脚本，就用它的带标签描述
+            if (detailDesc != null) detailDesc.text = selectedEvidenceComponent.GetDescriptionForUI();
+        }
+        else if (pendingUpdateIDs.Contains(data.evidenceID))
+        {
+            // 否则（例如员工档案），走原本的 pending 逻辑
+            if (detailDesc != null) detailDesc.text = "<color=#FF4500>【线索更新】</color>\n" + data.desc;
             pendingUpdateIDs.Remove(data.evidenceID);
         }
         else
@@ -402,11 +398,9 @@ public class NoteManager : MonoBehaviour
             if (detailDesc != null) detailDesc.text = data.desc;
         }
 
-        // 查找场景中对应的 Evidence 组件，判断是否支持搜索
-        selectedEvidenceComponent = FindEvidenceComponentByID(data.evidenceID);
-
-        // ✅ 逻辑增强：只有支持搜索 且 尚未完成搜索 的证物才显示提示图片
-        bool hasSearch = selectedEvidenceComponent != null
+        // 只有证物页签且未完成搜索才显示提示图
+        bool hasSearch = (currentTab == NoteTab.Evidence)
+                        && selectedEvidenceComponent != null
                         && selectedEvidenceComponent.HasSearchFeature
                         && !completedSearchIDs.Contains(data.evidenceID);
 
@@ -426,7 +420,6 @@ public class NoteManager : MonoBehaviour
         RefreshTakeOutButtonState();
     }
 
-    // 通过 evidenceID 在场景中查找对应的 Evidence 组件
     private Evidence FindEvidenceComponentByID(string id)
     {
         Evidence[] allEvidence = FindObjectsOfType<Evidence>();
@@ -441,21 +434,16 @@ public class NoteManager : MonoBehaviour
     {
         if (activeNPC == null || string.IsNullOrEmpty(selectedData.evidenceID))
         {
-            Debug.LogWarning("提交失败：未选中有效证物或当前没有交互的 NPC。");
             return;
         }
 
         string idToSubmit = selectedData.evidenceID;
         NPCInteractable npcToNotify = activeNPC;
 
-        Debug.Log("正在向 " + npcToNotify.npcDisplayName + " 提交证物: " + idToSubmit);
-
         ToggleNote();
-
         npcToNotify.ReceiveEvidence(idToSubmit);
     }
 
-    // 由 NPCInteractable 调用（NPC对话后更新描述）
     public void UpdateEvidenceInfo(string id, string newDesc)
     {
         for (int i = 0; i < collectedEvidence.Count; i++)
@@ -466,13 +454,11 @@ public class NoteManager : MonoBehaviour
                 updatedData.desc = newDesc;
                 collectedEvidence[i] = updatedData;
                 pendingUpdateIDs.Add(id);
-                Debug.Log("证物信息已更新: " + id);
                 break;
             }
         }
     }
 
-    // ✅ 新增：由 SearchPanelManager 调用，直接更新描述（不触发【线索更新】提示）
     public void UpdateEvidenceDescDirectly(string id, string newDesc)
     {
         for (int i = 0; i < collectedEvidence.Count; i++)
@@ -482,7 +468,6 @@ public class NoteManager : MonoBehaviour
                 EvidenceData updatedData = collectedEvidence[i];
                 updatedData.desc = newDesc;
                 collectedEvidence[i] = updatedData;
-                Debug.Log("证物描述已通过搜索更新: " + id);
                 break;
             }
         }
