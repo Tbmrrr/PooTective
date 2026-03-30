@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
-using System.Collections; // ✅ 必须加上这一行！
-using System.Collections.Generic; // 这个通常也有，用来支持 List
+using System.Collections; 
+using System.Collections.Generic; 
 /// <summary>
 /// 重建模式管理器：负责常态与重建模式切换、时间节点解锁及带旋转的坐标传送
 /// </summary>
@@ -34,7 +34,7 @@ public class RebuildModeManager : MonoBehaviour
     public bool isRebuildModeActive = false;
     public bool hasUnlockedRebuild = false;
     public bool hasUnlockedNode2 = false;
-
+    private bool shouldForceNode2OnEnter = false;
     private void Awake()
     {
         // 单例模式初始化
@@ -81,7 +81,15 @@ public class RebuildModeManager : MonoBehaviour
         TeleportToPoint(node2Point);
         Debug.Log("<color=#FFD700>[重建模式]</color> 已跳跃至时间节点 2 (位置与旋转已同步)");
     }
+    public void UnlockAndEnterAtNode2()
+    {
+        hasUnlockedRebuild = true;
+        hasUnlockedNode2 = true;
+        shouldForceNode2OnEnter = true; // 标记：这次进入要跳过节点1
 
+        isRebuildModeActive = true;
+        EnterRebuildMode();
+    }
     /// <summary>
     /// 核心传送执行函数：同时处理坐标和旋转，并解决 CharacterController 冲突
     /// </summary>
@@ -154,11 +162,19 @@ public class RebuildModeManager : MonoBehaviour
         if (rebuildModePanel != null) rebuildModePanel.SetActive(true);
         if (normalUIAbilityIcon != null) normalUIAbilityIcon.SetActive(false);
 
-        // ✅ 修改点：不要直接解锁，改为调用协程延时解锁
-        // 这样可以躲过 FPS 脚本在 OnEnable 里的强制锁定
         StartCoroutine(UnlockCursorForUI());
 
-        OnNode1Clicked();
+        // ✅ 修改点：根据标记决定传送位置
+        if (shouldForceNode2OnEnter)
+        {
+            OnNode2Clicked(); // 强制去节点 2
+            shouldForceNode2OnEnter = false; // 执行一次后立即重置，保证下次手动打开是节点 1
+        }
+        else
+        {
+            OnNode1Clicked(); // 默认去节点 1
+        }
+
         UpdateNode2Visuals(hasUnlockedNode2);
 
         if (TakenOutEvidenceUI.Instance != null && !string.IsNullOrEmpty(TakenOutEvidenceUI.Instance.currentEvidenceID))
