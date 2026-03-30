@@ -18,7 +18,7 @@ public class TakenOutEvidenceUI : MonoBehaviour, IDragHandler, IEndDragHandler, 
     public float flySpeed = 8f;
     private Vector2 savedFixedPos;
 
-    [Tooltip("camera")]
+    [Tooltip("用于射线检测的摄像机，通常是 MainCamera")]
     public Camera interactionCamera;
 
     [HideInInspector] public string currentEvidenceID;
@@ -26,21 +26,24 @@ public class TakenOutEvidenceUI : MonoBehaviour, IDragHandler, IEndDragHandler, 
 
     private void Awake()
     {
-        Instance = this;
+        if (Instance == null) Instance = this;
+        else Destroy(gameObject);
+
         rectTransform = GetComponent<RectTransform>();
         canvasGroup = GetComponent<CanvasGroup>();
         if (canvasGroup == null) canvasGroup = gameObject.AddComponent<CanvasGroup>();
 
+        // 记录初始的固定悬浮位置（通常在屏幕边缘）
         savedFixedPos = rectTransform.anchoredPosition;
         gameObject.SetActive(false);
     }
 
-    // ✅ 新增判断逻辑：当前是否可以开始拖拽？
+    // 判断逻辑：当前是否可以开始拖拽
     private bool CanStartDragging()
     {
         // 1. 必须在重建模式
         bool isRebuild = (RebuildModeManager.Instance != null && RebuildModeManager.Instance.isRebuildModeActive);
-        // 2. 笔记本面板必须是关闭状态 (假设 NoteManager 的面板叫 notePanel)
+        // 2. 笔记本面板必须是关闭状态
         bool isNoteClosed = (NoteManager.Instance != null && !NoteManager.Instance.notePanel.activeSelf);
 
         return isRebuild && isNoteClosed;
@@ -51,13 +54,13 @@ public class TakenOutEvidenceUI : MonoBehaviour, IDragHandler, IEndDragHandler, 
         gameObject.SetActive(true);
         transform.SetAsLastSibling();
 
-        currentEvidenceID = data.evidenceID;
+        currentEvidenceID = data.evidenceID; // 这里现在可能是证物 ID，也可能是员工 ID
         iconImage.sprite = data.icon;
         if (nameLabel != null) nameLabel.text = data.name;
 
         HideDecorations();
 
-        // 记录鼠标点击位置并转换坐标
+        // 记录鼠标点击位置并转换坐标，产生一个从点击位置“飞入”侧边栏的效果
         rectTransform.position = Input.mousePosition;
         Vector2 startAnchoredPos = rectTransform.anchoredPosition;
 
@@ -71,29 +74,22 @@ public class TakenOutEvidenceUI : MonoBehaviour, IDragHandler, IEndDragHandler, 
     // --- 拖拽处理 ---
     public void OnBeginDrag(PointerEventData eventData)
     {
-        // ✅ 拦截检查：如果不满足条件，直接退出
         if (!CanStartDragging())
         {
-            Debug.Log("【系统】当前笔记本未关闭或不在重建模式，禁止拖拽证物。");
+            Debug.Log("【系统】当前笔记本未关闭或不在重建模式，禁止拖拽。");
             return;
         }
 
         isDragging = true;
         HideDecorations();
-        canvasGroup.blocksRaycasts = false;
-        Debug.Log("开始拖拽证物: " + currentEvidenceID);
+        canvasGroup.blocksRaycasts = false; // 拖拽时关闭自身射线阻挡，以便射线穿透到场景物体
     }
 
     public void OnDrag(PointerEventData eventData)
     {
-        // ✅ 持续检查：防止中途状态改变（虽然极少发生）
         if (!isDragging) return;
-
         rectTransform.position = eventData.position;
     }
-
-    // 记得在顶部引入
-    // using UnityEngine;
 
     public void OnEndDrag(PointerEventData eventData)
     {
@@ -104,27 +100,24 @@ public class TakenOutEvidenceUI : MonoBehaviour, IDragHandler, IEndDragHandler, 
 
         bool isMatchSuccessful = false;
 
-        // ✅ 核心修正：优先使用手动指定的摄像机，如果没有指定，则尝试寻找主摄像机
+        // 优先使用手动指定的摄像机，否则使用主相机
         Camera camToUse = interactionCamera != null ? interactionCamera : Camera.main;
 
-        if (camToUse == null)
+        if (camToUse != null)
         {
-            Debug.LogError("FATAL: 既没有指定 interactionCamera，场景中也找不到 MainCamera！无法执行射线检测。");
-        }
-        else
-        {
-            // 使用正确的摄像机发射射线
             Ray ray = camToUse.ScreenPointToRay(Input.mousePosition);
             RaycastHit hit;
 
             if (Physics.Raycast(ray, out hit, 100f))
             {
-                Debug.Log("射线击中了: " + hit.collider.name); // 打印击中物体，方便排查数据
+                Debug.Log("射线击中了: " + hit.collider.name);
 
+                // 获取接收器组件
                 EvidenceReceiver receiver = hit.collider.GetComponent<EvidenceReceiver>();
                 if (receiver != null)
                 {
-                    if (receiver.TryMatchEvidence(currentEvidenceID))
+                    // ✅ 调用更新后的 TryMatch 接口
+                    if (receiver.TryMatch(currentEvidenceID))
                     {
                         isMatchSuccessful = true;
                     }
@@ -132,14 +125,15 @@ public class TakenOutEvidenceUI : MonoBehaviour, IDragHandler, IEndDragHandler, 
             }
         }
 
-        // 处理结果 (逻辑同前...)
+        // 处理结果
         if (isMatchSuccessful)
         {
-            gameObject.SetActive(false);
-            if (NoteManager.Instance != null) NoteManager.Instance.OnTakenOutItemClosed();
+            // 匹配成功由 EvidenceReceiver 逻辑触发 Close() 或在这里处理
+            Close();
         }
         else
         {
+            // 匹配失败，飞回原来的侧边位置
             StopAllCoroutines();
             if (rectTransform != null) StartCoroutine(FlyToTarget(rectTransform.anchoredPosition));
         }
@@ -158,11 +152,10 @@ public class TakenOutEvidenceUI : MonoBehaviour, IDragHandler, IEndDragHandler, 
         if (nameLabel != null) nameLabel.gameObject.SetActive(true);
     }
 
-    // --- 叉叉点击事件 ---
-    public void OnClickClose()
+    // --- 公共关闭接口 ---
+    public void Close()
     {
-        Debug.Log("【Debug】收回证物: " + currentEvidenceID);
-
+        Debug.Log("【系统】收回/消耗取出项: " + currentEvidenceID);
         currentEvidenceID = null;
         gameObject.SetActive(false);
 
@@ -172,7 +165,13 @@ public class TakenOutEvidenceUI : MonoBehaviour, IDragHandler, IEndDragHandler, 
         }
     }
 
-    // --- 悬浮检测 (保持开启，即使不能拖拽也可以看名字) ---
+    // 绑定给 UI 上自带的叉叉按钮
+    public void OnClickClose()
+    {
+        Close();
+    }
+
+    // --- 悬浮检测 ---
     public void OnPointerEnter(PointerEventData eventData)
     {
         if (!isDragging)

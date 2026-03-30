@@ -12,11 +12,10 @@ public class SearchableKeyword
     [TextArea(2, 5)]
     public string searchResult;
 
-    [Tooltip("搜索后追加到证物描述的内容（留空则不更新描述）")]
-    [TextArea(2, 5)]
-    public string descAppendOnSearch;
+    [Tooltip("搜索成功后，整个证物描述将替换为此处填写的完整新内容")]
+    [TextArea(5, 10)]
+    public string newDescriptionOnSearch; // 修改：变量名改为全量描述，原名为 descAppendOnSearch
 }
-
 
 [System.Serializable]
 public class ConditionalDialogue
@@ -75,6 +74,9 @@ public class Evidence : MonoBehaviour
 
     // 本地交互锁，防止按键过快导致的重复触发
     private bool isProcessing = false;
+
+    // ✅ 新增：用于处理“线索更新”提示的状态
+    private bool isDescriptionUpdated = false;
 
     private void Start()
     {
@@ -218,5 +220,31 @@ public class Evidence : MonoBehaviour
         {
             interactPrompt.SetActive(show);
         }
+    }
+
+    // ======================================================
+    // ✅ UI 专用功能（由外部 SearchPanelManager 调用）
+    // ======================================================
+
+    /// <summary>
+    /// UI 界面获取描述时调用此方法，而不是直接读取 description 变量
+    /// </summary>
+    public string GetDescriptionForUI()
+    {
+        if (isDescriptionUpdated)
+        {
+            string result = "<color=#FF4500>【线索更新】</color>\n" + description;
+            isDescriptionUpdated = false; // 读取后立即清除标记
+            return result;
+        }
+        return description;
+    }
+
+    /// <summary>
+    /// 开启更新标记（用于质询或搜索成功时）
+    /// </summary>
+    public void SetUpdateFlag()
+    {
+        isDescriptionUpdated = true;
     }
 }
