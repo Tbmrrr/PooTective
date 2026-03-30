@@ -78,6 +78,16 @@ public class Evidence : MonoBehaviour
     // ✅ 新增：用于处理“线索更新”提示的状态
     private bool isDescriptionUpdated = false;
 
+    private string originalDescription;
+    private void Awake() // 改用 Awake 尽早备份
+    {
+        // 在任何逻辑修改 description 之前，先把 Inspector 里填的初始文本存起来
+        originalDescription = description;
+
+        hasInteracted = false;
+        isProcessing = false;
+        if (interactPrompt != null) interactPrompt.SetActive(false);
+    }
     private void Start()
     {
         hasInteracted = false;
@@ -87,6 +97,13 @@ public class Evidence : MonoBehaviour
 
     public virtual void OnInteract()
     {
+        // --- 新增：Poo2 的特殊拦截逻辑 ---
+        if (evidenceID == "Poo2")
+        {
+            // 如果是 Poo2，这个由 E 键触发的普通交互方法直接拦截，什么都不做
+            Debug.Log("[Evidence] Poo2 忽略了 E 键交互。");
+            return;
+        }
         // 1. 如果正在处理交互中，或者对话管理器已经处于激活状态，直接拦截
         if (isProcessing) return;
         if (DialogueManager.Instance != null && DialogueManager.Instance.isDialogueActive) return;
@@ -129,6 +146,7 @@ public class Evidence : MonoBehaviour
             }
         }
 
+
         // ===== ✅ 核心展示逻辑：使用你调好的 Rotation =====
         if (EvidenceDisplayManager.Instance != null && displayModel != null)
         {
@@ -164,6 +182,39 @@ public class Evidence : MonoBehaviour
         }
 
         ShowPrompt(false);
+    }
+
+    public void OnSpecialInteractR()
+    {
+        if (evidenceID != "Poo2") return;
+
+        // 1. 检查 Poo1 (保持你之前的逻辑)
+        if (InteractionHistoryManager.Instance != null)
+        {
+            if (!InteractionHistoryManager.Instance.HasInteractedWith("poo1"))
+            {
+                Debug.Log("Poo1 还没捡，不能捡 Poo2");
+                return;
+            }
+        }
+
+        // 2. 进包逻辑
+        if (NoteManager.Instance != null && !NoteManager.Instance.HasEvidence(evidenceID))
+        {
+            NoteManager.Instance.AddEvidence(this);
+            InteractionHistoryManager.Instance.RecordEvidenceInteraction(evidenceID);
+        }
+
+        // 3. ✅ 核心修改：解锁并直接以“节点 2”身份进入重建模式
+        if (RebuildModeManager.Instance != null)
+        {
+            // 调用我们新写的强行进入节点2的方法
+            RebuildModeManager.Instance.UnlockAndEnterAtNode2();
+        }
+
+        // 4. 隐藏
+        ShowPrompt(false);
+        //this.gameObject.SetActive(false);
     }
 
     private IEnumerator WaitForDialogueEnd()

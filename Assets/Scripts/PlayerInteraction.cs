@@ -44,6 +44,15 @@ public class PlayerInteraction : MonoBehaviour
         // 2. 重建模式逻辑 (R) 保持不变
         if (Input.GetKeyDown(pooKey))
         {
+            // --- ✅ 新增：优先判定 Poo2 的快捷拾取 ---
+            if (currentEvidence != null && currentEvidence.evidenceID == "Poo2")
+            {
+                currentEvidence.OnSpecialInteractR();
+                currentEvidence = null; // 捡走后清空引用
+                return; // 执行完特殊逻辑直接返回，不触发后面的重建模式切换
+            }
+
+            // --- 原有的逻辑 ---
             if (RebuildModeManager.Instance != null && RebuildModeManager.Instance.hasUnlockedRebuild)
             {
                 RebuildModeManager.Instance.ToggleRebuildMode();

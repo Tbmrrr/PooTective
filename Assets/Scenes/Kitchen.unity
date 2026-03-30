@@ -1840,7 +1840,7 @@ MonoBehaviour:
   - keyword: "\u6A59\u8272\u7269\u8D28"
     searchResult: "\u6765\u6E90\n1. \u5929\u7136\u98DF\u7269\n\u5927\u91CF\u98DF\u7528\u80E1\u841D\u535C\u3001\u5357\u74DC\u3001\u7518\u85AF\u7B49\u5BCC\u542B\u80E1\u841D\u535C\u7D20\u7684\u852C\u679C\u540E\uFF0C\u672A\u88AB\u5B8C\u5168\u5438\u6536\u7684\u8272\u7D20\u4F1A\u968F\u7CAA\u4FBF\u6392\u51FA\u3002\u5154\u5B50\u5C0F\u9547\u7684\u5C45\u6C11\u5BF9\u6B64\u65E9\u5DF2\u89C1\u602A\u4E0D\u602A\u3002\n2.
       \u5408\u6210\u8272\u7D20\n\u67D0\u4E9B\u6A59\u8272\u7CFB\u7684\u98DF\u7528\u8272\u7D20\u4E0D\u6613\u88AB\u6D88\u5316\uFF0C\u6444\u5165\u540E\u57FA\u672C\u4FDD\u6301\u539F\u8272\u901A\u8FC7\u80A0\u9053\u3002\u5E38\u89C1\u4E8E\u5F69\u8272\u7CD6\u679C\u3001\u679C\u51BB\u3001\u996E\u6599\u7B49\u52A0\u5DE5\u98DF\u54C1\u3002"
-    newDescriptionOnSearch: "\u957F\u9888\u9E7F\u7684\u7CAA\u4FBF\n\u7EA624\u5C0F\u65F6\u524D\n\u957F\u671F\u9965\u997F\u5BFC\u81F4\u80A0\u80C3\u4E0D\u5065\u5EB7\n\u98DF\u7528\u8FC7\u591A\u9AD8\u7CD6\u5206\u3001\u4F4E\u7EA4\u7EF4\u98DF\u7269\n\u8FD1\u671F\u98DF\u7528\u5927\u91CF\u542B\u80E1\u841D\u535C\u7D20\u98DF\u7269\n\u6392\u6CC4\u91CF\u660E\u663E\u5C11\u4E8E\u6B63\u5E38\u60C5\u51B5\n\u7126\u8651"
+    newDescriptionOnSearch: "\u957F\u9888\u9E7F\u7684\u7CAA\u4FBF \u7EA624\u5C0F\u65F6\u524D\n\u957F\u671F\u9965\u997F\u5BFC\u81F4\u80A0\u80C3\u4E0D\u5065\u5EB7\n\u98DF\u7528\u8FC7\u591A\u9AD8\u7CD6\u5206\u3001\u4F4E\u7EA4\u7EF4\u98DF\u7269\n\u8FD1\u671F\u98DF\u7528\u5927\u91CF\u542B\u80E1\u841D\u535C\u7D20\u98DF\u7269\n\u6392\u6CC4\u91CF\u660E\u663E\u5C11\u4E8E\u6B63\u5E38\u60C5\u51B5\n\u7126\u8651"
   interactLines:
   - "\u5728\u4E4C\u9E26\u548C\u957F\u9888\u9E7F\u7684\u5BBF\u820D\u4E2D\u53D1\u73B0\u4E86\u7CAA\u4FBF\u3002"
   conditionalDialogues: []
@@ -2236,6 +2236,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a4fbe48680133fc4d8f63c366374032c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  targetNode: 1
   rPromptObject: {fileID: 635370248}
   evidenceComponent: {fileID: 0}
 --- !u!114 &163485626
@@ -9660,8 +9661,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 0.7927185, y: 0.86974806, z: 0.31755754}
-  m_Center: {x: -0.10364075, y: -0.35263038, z: 0.012669754}
+  m_Size: {x: 0.7297272, y: 0.86974806, z: 0.24266706}
+  m_Center: {x: -0.13513641, y: -0.35263038, z: -0.02477553}
 --- !u!1 &619645539
 GameObject:
   m_ObjectHideFlags: 0
@@ -12745,7 +12746,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 9f3fb0b08e6ec4b1a9d3fec8040e471b, type: 3}
+  m_Sprite: {fileID: 21300000, guid: e15aeab2a851849b78b42e00a6f0b52b, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -14981,11 +14982,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   doorAnimator: {fileID: 1055126078}
-  autoCloseDelay: 3
+  interactPrompt: {fileID: 0}
+  interactDistance: 2.5
   isOpen: 0
   isLocked: 0
   lockedHint: "\u95E8\u9501\u4F4F\u4E86\u3002"
-  interactPrompt: {fileID: 0}
+  autoCloseDelay: 3
 --- !u!65 &1055126080
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -18725,11 +18727,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   doorAnimator: {fileID: 1325520722}
-  autoCloseDelay: 3
+  interactPrompt: {fileID: 0}
+  interactDistance: 2.5
   isOpen: 0
   isLocked: 0
   lockedHint: "\u95E8\u9501\u4F4F\u4E86\u3002"
-  interactPrompt: {fileID: 0}
+  autoCloseDelay: 3
 --- !u!65 &1325520724
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -25821,11 +25824,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   doorAnimator: {fileID: 1879840397}
-  autoCloseDelay: 3
+  interactPrompt: {fileID: 0}
+  interactDistance: 2.5
   isOpen: 0
   isLocked: 0
   lockedHint: "\u95E8\u9501\u4F4F\u4E86\u3002"
-  interactPrompt: {fileID: 0}
+  autoCloseDelay: 3
 --- !u!65 &1879840399
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -25916,11 +25920,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   doorAnimator: {fileID: 1882757249}
-  autoCloseDelay: 3
+  interactPrompt: {fileID: 0}
+  interactDistance: 2.5
   isOpen: 0
   isLocked: 0
   lockedHint: "\u95E8\u9501\u4F4F\u4E86\u3002"
-  interactPrompt: {fileID: 0}
+  autoCloseDelay: 3
 --- !u!95 &1882757249
 Animator:
   serializedVersion: 5

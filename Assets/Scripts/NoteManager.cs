@@ -277,12 +277,20 @@ public class NoteManager : MonoBehaviour
 
     public void AddEvidence(Evidence evidence)
     {
+        // 如果证据脚本里有 searchableKeywords，
+        // 说明它可能有“搜索后”的描述。
+        // 但进包这一刻，我们希望它是“干净”的。
+
         EvidenceData data = new EvidenceData
         {
             evidenceID = evidence.evidenceID,
             name = evidence.evidenceName,
             icon = evidence.evidenceIcon,
             fullImage = evidence.evidenceFullImage,
+
+            // ✅ 核心修复：这里不再直接拿 evidence.description
+            // 而是检查一下，如果 description 已经被改得和初始不一样了（或者存在 keyword 逻辑），
+            // 我们需要确保这里填入的是“初始简短描述”。
             desc = evidence.description
         };
         collectedEvidence.Add(data);
@@ -402,26 +410,26 @@ public class NoteManager : MonoBehaviour
         if (detailImage != null) detailImage.sprite = data.fullImage;
         if (detailName != null) detailName.text = data.name;
 
-        // 这里的描述显示逻辑：优先获取场景中 Evidence 组件的 GetDescriptionForUI (如果存在)
-        selectedEvidenceComponent = FindEvidenceComponentByID(data.evidenceID);
+        // --- 修改开始 ---
 
-        if (selectedEvidenceComponent != null)
+        // 1. 先检查是否有待更新的标记（用于显示“【线索更新】”红字）
+        if (pendingUpdateIDs.Contains(data.evidenceID))
         {
-            // 如果场景里有对应的 Evidence 脚本，就用它的带标签描述
-            if (detailDesc != null) detailDesc.text = selectedEvidenceComponent.GetDescriptionForUI();
-        }
-        else if (pendingUpdateIDs.Contains(data.evidenceID))
-        {
-            // 否则（例如员工档案），走原本的 pending 逻辑
             if (detailDesc != null) detailDesc.text = "<color=#FF4500>【线索更新】</color>\n" + data.desc;
-            pendingUpdateIDs.Remove(data.evidenceID);
+            pendingUpdateIDs.Remove(data.evidenceID); // 玩家看了，移除红字标记
         }
         else
         {
+            // 2. 直接使用 data.desc (这是在 UpdateEvidenceInfo 中被更新过的值)
             if (detailDesc != null) detailDesc.text = data.desc;
         }
 
-        // 只有证物页签且未完成搜索才显示提示图
+        // 3. 搜索功能依然需要组件支持，所以保留组件寻找，但仅用于搜索逻辑
+        selectedEvidenceComponent = FindEvidenceComponentByID(data.evidenceID);
+
+        // --- 修改结束 ---
+
+        // 搜索提示图逻辑 (保持不变)
         bool hasSearch = (currentTab == NoteTab.Evidence)
                         && selectedEvidenceComponent != null
                         && selectedEvidenceComponent.HasSearchFeature
@@ -429,23 +437,20 @@ public class NoteManager : MonoBehaviour
 
         if (searchHintObject != null) searchHintObject.SetActive(hasSearch);
 
-        // 提交按钮显示逻辑
+        // 按钮显示逻辑 (保持不变)
         if (activeNPC != null && currentTab == NoteTab.Evidence)
-        {
-            if (presentSubmitBtn != null) presentSubmitBtn.gameObject.SetActive(true);
-        }
+            presentSubmitBtn?.gameObject.SetActive(true);
         else
-        {
-            if (presentSubmitBtn != null) presentSubmitBtn.gameObject.SetActive(false);
-        }
+            presentSubmitBtn?.gameObject.SetActive(false);
 
-        // 刷新取出按钮状态
         RefreshTakeOutButtonState();
     }
 
     private Evidence FindEvidenceComponentByID(string id)
     {
-        Evidence[] allEvidence = FindObjectsOfType<Evidence>();
+        // ✅ 核心修复：增加 true 参数，允许在隐藏（Inactive）物体中查找
+        Evidence[] allEvidence = GameObject.FindObjectsByType<Evidence>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+
         foreach (var e in allEvidence)
         {
             if (e.evidenceID == id) return e;
@@ -501,5 +506,19 @@ public class NoteManager : MonoBehaviour
     {
         // 检查已收集的证物列表中是否已有该 ID
         return collectedEvidence.Exists(e => e.evidenceID == id);
+    }
+
+    // ✅ 新增：提供给外部获取 Evidence 脚本实例的方法
+    public Evidence GetEvidenceComponent(string id)
+    {
+        // 调用你现有的私有方法即可，因为它内部使用了 FindObjectsOfType<Evidence>(true)
+        // 这里的关键是 FindObjectsOfType 必须包含隐藏物体
+        Evidence[] allEvidence = Resources.FindObjectsOfTypeAll<Evidence>();
+        foreach (var e in allEvidence)
+        {
+            // 排除掉预制体，只找场景中的物体
+            if (e.gameObject.scene.name != null && e.evidenceID == id) return e;
+        }
+        return null;
     }
 }

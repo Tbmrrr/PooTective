@@ -2,82 +2,105 @@ using UnityEngine;
 
 public class PooInteractable : MonoBehaviour
 {
-    [Header("UI 提示 (World Space)")]
+    [Header("设置：该物体对应哪个重建节点？")]
+    [Tooltip("1 代表 Poo1 (节点1)，2 代表 Poo2 (节点2)")]
+    public int targetNode = 1;
+
+    [Header("UI 提示图片 (World Space)")]
     public GameObject rPromptObject;
 
     [Header("引用的证物组件")]
     public Evidence evidenceComponent;
 
     private bool isPlayerInZone = false;
-    private bool hasAddedToNote = false; // 内部记录，防止单次运行重复加背包
+    private bool hasAddedToNote = false;
 
     void Start()
     {
-        if (rPromptObject != null) rPromptObject.SetActive(false);
+        ResetState();
         if (evidenceComponent == null) evidenceComponent = GetComponent<Evidence>();
+    }
+
+    // ✅ 新增：重置状态的方法，供外部或内部初始化调用
+    public void ResetState()
+    {
+        isPlayerInZone = false;
+        if (rPromptObject != null) rPromptObject.SetActive(false);
     }
 
     void Update()
     {
-        if (isPlayerInZone && Input.GetKeyDown(KeyCode.R))
+        // 判定显示逻辑：范围内 + 专注模式开启 + 还没交互过
+        bool canShow = isPlayerInZone &&
+                       FocusModeManager.Instance != null &&
+                       FocusModeManager.Instance.isFocusModeActive &&
+                       !hasAddedToNote;
+
+        if (rPromptObject != null) rPromptObject.SetActive(canShow);
+
+        // ✅ 核心修改：如果当前可以触发特殊交互，我们在这里“截断”输入
+        if (canShow && Input.GetKeyDown(KeyCode.R))
         {
-            if (FocusModeManager.Instance != null && FocusModeManager.Instance.isFocusModeActive)
+            // 告诉系统，我们正在处理特殊的证物 R 键逻辑
+            OnPooInteract();
+
+            // 这一帧的 R 键已经被我们消耗掉了
+            return;
+        }
+    }
+
+    public void OnPooInteract()
+    {
+        if (RebuildModeManager.Instance == null) return;
+
+        // 1. 处理特殊重建逻辑
+        if (targetNode == 1)
+        {
+            RebuildModeManager.Instance.UnlockAndEnter();
+        }
+        else if (targetNode == 2)
+        {
+            // ✅ 先解锁节点2，再进入，最后强制切换坐标
+            RebuildModeManager.Instance.UnlockTimeNode2();
+            RebuildModeManager.Instance.UnlockAndEnter();
+            RebuildModeManager.Instance.OnNode2Clicked();
+            Debug.Log("<color=green>[Poo2]</color> 特殊 R 键交互：解锁并跳转至节点 2");
+        }
+
+        // 2. 静默入包
+        if (!hasAddedToNote && evidenceComponent != null)
+        {
+            if (NoteManager.Instance != null && !NoteManager.Instance.HasEvidence(evidenceComponent.evidenceID))
             {
-                OnPooInteract();
+                NoteManager.Instance.AddEvidence(evidenceComponent);
+                if (InteractionHistoryManager.Instance != null)
+                {
+                    InteractionHistoryManager.Instance.RecordEvidenceInteraction(evidenceID: evidenceComponent.evidenceID);
+                }
+                hasAddedToNote = true;
             }
         }
+
+        // 交互完关闭提示
+        if (rPromptObject != null) rPromptObject.SetActive(false);
     }
 
     private void OnTriggerEnter(Collider other)
     {
-        if (other.CompareTag("Player"))
-        {
-            isPlayerInZone = true;
-            if (FocusModeManager.Instance != null && FocusModeManager.Instance.isFocusModeActive)
-            {
-                if (rPromptObject != null) rPromptObject.SetActive(true);
-            }
-        }
+        if (other.CompareTag("Player")) isPlayerInZone = true;
     }
 
     private void OnTriggerExit(Collider other)
     {
         if (other.CompareTag("Player"))
         {
-            isPlayerInZone = false;
-            if (rPromptObject != null) rPromptObject.SetActive(false);
+            ResetState();
         }
     }
 
-    public void OnPooInteract()
-    {
-        // 1. 重建模式逻辑：直接调用你之前能跑通的方法
-        if (RebuildModeManager.Instance != null)
-        {
-            // 统一调用 UnlockAndEnter，它内部应该已经处理了“已解锁则直接进入”的逻辑
-            RebuildModeManager.Instance.UnlockAndEnter();
-        }
-
-        // 2. 背包逻辑：只在第一次交互时添加
-        if (!hasAddedToNote && evidenceComponent != null)
-        {
-            if (InteractionHistoryManager.Instance != null)
-            {
-                InteractionHistoryManager.Instance.RecordEvidenceInteraction(evidenceComponent.evidenceID);
-            }
-
-            if (NoteManager.Instance != null)
-            {
-                NoteManager.Instance.AddEvidence(evidenceComponent);
-            }
-
-            hasAddedToNote = true; // 设为 true 后，下次按 R 就不会再进这个 if 了
-            Debug.Log($"[Poo] {evidenceComponent.evidenceName} 已加入背包。");
-        }
-    }
-
+    // ✅ 当物体被隐藏或销毁时（比如场景重置），重置交互状态
     private void OnDisable()
     {
-        if (rPromptObject != null) rPromptObject.SetActive(false);
+        ResetState();
     }
 }

@@ -265,20 +265,20 @@ public class SearchPanelManager : MonoBehaviour
                 }
 
                 // ✅ 核心业务逻辑修改点：全量更新 NoteManager 里的缓存描述
+                // 在 SearchPanelManager.cs 的 OnKeywordDropped 方法中
                 if (!string.IsNullOrEmpty(kw.newDescriptionOnSearch))
                 {
+                    // 1. 更新 NoteManager 内部的列表数据（这样背包刷新时文字就变了）
                     NoteManager.Instance.UpdateEvidenceDescDirectly(currentEvidenceID, kw.newDescriptionOnSearch);
 
-                    // 开启“线索更新”标记（需要找到场景中的 Evidence 脚本）
-                    Evidence[] allEvidences = FindObjectsOfType<Evidence>();
-                    foreach (var ev in allEvidences)
+                    // 2. 更新场景中 Evidence 脚本里的 description 变量
+                    // ✅ 修复：通过 NoteManager 新写的接口获取组件，不受 SetActive(false) 影响
+                    Evidence ev = NoteManager.Instance.GetEvidenceComponent(currentEvidenceID);
+                    if (ev != null)
                     {
-                        if (ev.evidenceID == currentEvidenceID)
-                        {
-                            ev.description = kw.newDescriptionOnSearch; // 同步实体数据
-                            ev.SetUpdateFlag(); // 打上标签
-                            break;
-                        }
+                        ev.description = kw.newDescriptionOnSearch;
+                        ev.SetUpdateFlag(); // 开启【线索更新】红字
+                        Debug.Log($"[Search] 已同步更新证物脚本数据: {currentEvidenceID}");
                     }
                 }
 
