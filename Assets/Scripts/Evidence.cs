@@ -96,33 +96,36 @@ public class Evidence : MonoBehaviour
 
         bool isFirstTime = !hasInteracted;
 
-        if (isFirstTime)
+        if (!hasInteracted)
         {
             hasInteracted = true;
 
-            // ✅ 处理时间节点解锁逻辑
             if (unlockRebuildNode2 && RebuildModeManager.Instance != null)
             {
                 RebuildModeManager.Instance.UnlockTimeNode2();
             }
 
-            // ✅ 只有在勾选了 canPickUp 时，才记录到历史并加入背包
             if (canPickUp)
             {
-                if (InteractionHistoryManager.Instance != null)
-                {
-                    InteractionHistoryManager.Instance.RecordEvidenceInteraction(evidenceID);
-                }
-
+                // ✅ 核心修复：检查 NoteManager 里是否已经有这个 ID 了
                 if (NoteManager.Instance != null)
                 {
-                    NoteManager.Instance.AddEvidence(this);
+                    if (!NoteManager.Instance.HasEvidence(evidenceID))
+                    {
+                        // 只有不存在时才添加
+                        NoteManager.Instance.AddEvidence(this);
+
+                        if (InteractionHistoryManager.Instance != null)
+                        {
+                            InteractionHistoryManager.Instance.RecordEvidenceInteraction(evidenceID);
+                        }
+                        Debug.Log($"[Evidence] {evidenceName} 初次获得，已加入背包。");
+                    }
+                    else
+                    {
+                        Debug.Log($"[Evidence] 背包已存在 {evidenceID}，不再重复添加。");
+                    }
                 }
-                Debug.Log($"[Evidence] {evidenceName} 已加入背包。");
-            }
-            else
-            {
-                Debug.Log($"[Evidence] {evidenceName} 仅供调查，不加入背包。");
             }
         }
 

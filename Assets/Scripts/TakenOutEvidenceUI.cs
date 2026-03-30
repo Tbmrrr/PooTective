@@ -26,8 +26,17 @@ public class TakenOutEvidenceUI : MonoBehaviour, IDragHandler, IEndDragHandler, 
 
     private void Awake()
     {
-        if (Instance == null) Instance = this;
-        else Destroy(gameObject);
+        if (Instance == null)
+        {
+            Instance = this;
+            // 如果你希望这个 UI 在切换场景时不消失，可以加这句（可选）
+            // DontDestroyOnLoad(gameObject); 
+        }
+        else if (Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
 
         rectTransform = GetComponent<RectTransform>();
         canvasGroup = GetComponent<CanvasGroup>();
@@ -190,10 +199,12 @@ public class TakenOutEvidenceUI : MonoBehaviour, IDragHandler, IEndDragHandler, 
         float t = 0;
         while (t < 1.0f)
         {
+            // ✅ 必须使用 unscaledDeltaTime，否则背包打开时（时间停止）动画会卡死
             t += Time.unscaledDeltaTime * flySpeed;
             rectTransform.anchoredPosition = Vector2.Lerp(startPos, savedFixedPos, t);
             yield return null;
         }
         rectTransform.anchoredPosition = savedFixedPos;
+        Debug.Log("证物飞入侧边栏完成");
     }
 }
