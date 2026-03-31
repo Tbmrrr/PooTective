@@ -286,6 +286,10 @@ public class SearchPanelManager : MonoBehaviour
                 isSearchUsed = true;
 
                 NoteManager.Instance.MarkSearchAsCompleted(currentEvidenceID);
+                foreach (var etc in FindObjectsOfType<EvidenceTextController>(true))
+                {
+                    etc.RefreshStatus(); // 如果你给上面的脚本写了个公有刷新方法的话
+                }
                 return;
             }
         }

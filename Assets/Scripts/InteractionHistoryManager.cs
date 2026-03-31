@@ -14,7 +14,10 @@ public class InteractionHistoryManager : MonoBehaviour
 
     // 已质询过的组合：NPC名称 + 证物ID
     private HashSet<string> presentedEvidences = new HashSet<string>();
+    // 在 InteractionHistoryManager.cs 中添加
+    private HashSet<string> searchedEvidences = new HashSet<string>();
 
+    
     private void Awake()
     {
         if (Instance == null)
@@ -119,6 +122,16 @@ public class InteractionHistoryManager : MonoBehaviour
         Debug.Log("=== 交互历史记录 ===");
         Debug.Log($"已交互证物: {string.Join(", ", interactedEvidences)}");
         Debug.Log($"已质询记录: {string.Join(", ", presentedEvidences)}");
+    }
+
+    public void MarkAsSearched(string id)
+    {
+        searchedEvidences.Add(id);
+    }
+
+    public bool IsEvidenceSearched(string id)
+    {
+        return searchedEvidences.Contains(id);
     }
 }
 

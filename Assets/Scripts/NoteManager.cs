@@ -521,4 +521,11 @@ public class NoteManager : MonoBehaviour
         }
         return null;
     }
+
+    // ✅ 在 NoteManager.cs 里的末尾添加这个方法
+    public bool IsSearchCompleted(string id)
+    {
+        // 如果这个 ID 在已完成搜索的 Hashset 里，就返回 true
+        return completedSearchIDs.Contains(id);
+    }
 }
