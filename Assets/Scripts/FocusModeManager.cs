@@ -78,17 +78,18 @@ public class FocusModeManager : MonoBehaviour
         if (closefoucsmodeimage != null) closefoucsmodeimage.SetActive(active);
         if (pooObject != null) pooObject.SetActive(active);
 
-        // ✅ 可视化控制导向线
         if (guideLine != null)
         {
-            // 只有打开专注模式，且你有 Poo 的路径根节点时才显示线
-            bool canShowLine = active && pooPathRoot != null;
-            guideLine.gameObject.SetActive(canShowLine);
-
-            if (canShowLine)
+            // 关键：如果关闭模式，直接隐藏并返回
+            if (!active)
             {
-                GenerateLineFromPathRoot(); // ✅ 动态生成线
+                guideLine.gameObject.SetActive(false);
+                return;
             }
+
+            // 开启模式时
+            guideLine.gameObject.SetActive(true);
+            GenerateLineFromPathRoot(); // 这里只会被 ToggleFocusMode 调用一次
         }
     }
 

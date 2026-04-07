@@ -26764,7 +26764,8 @@ GameObject:
   m_Component:
   - component: {fileID: 1983564631}
   - component: {fileID: 1983564632}
-  m_Layer: 0
+  - component: {fileID: 1983564633}
+  m_Layer: 6
   m_Name: guideline
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -26890,6 +26891,29 @@ LineRenderer:
   m_UseWorldSpace: 1
   m_Loop: 0
   m_ApplyActiveColorSpace: 1
+--- !u!114 &1983564633
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1983564630}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c72bef811a84333429c0d3b264c1a18c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  enableSmoothing: 1
+  smoothPointsPerSegment: 20
+  baseHoverHeight: 0.61
+  floatAmplitude: 0.36
+  floatSpeed: 0.27
+  waveDensity: 0.5
+  flowSpeed: 0.64
+  lineMaterial: {fileID: 2100000, guid: 5ecb4eff69dceba44978761d415c529b, type: 2}
+  lineWidth: 0.01
+  lineColor: {r: 1, g: 0.75, b: 0.2, a: 1}
+  textureTiling: 1
 --- !u!1 &1984676480
 GameObject:
   m_ObjectHideFlags: 0
