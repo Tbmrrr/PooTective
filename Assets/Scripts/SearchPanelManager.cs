@@ -1,297 +1,393 @@
 using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
+using System.Linq;
 using TMPro;
 
 public class SearchPanelManager : MonoBehaviour
 {
     public static SearchPanelManager Instance { get; private set; }
 
-    [Header("搜索面板根节点")]
+    [Header("UI 根节点")]
     public GameObject searchPanel;
 
-    [Header("左侧：证物详情")]
-    public Image leftDetailImage;
-    public Text leftDetailName;
-    public TMP_Text leftDetailDesc;
+    [Header("A区：线索列表")]
+    public Transform clueListParent;
+    public GameObject clueItemPrefab;
 
-    [Header("右侧：搜索区域")]
-    public Text searchResultText;
-    public Image closeHintImage;
-    public Text dropZonePlaceholderText;
+    [Header("B区：搜索输入")]
+    public TMP_InputField searchInputField;
+    public TMP_Text searchResultDisplay;
+    public ScrollRect resultScrollRect;
 
-    [Header("拖拽Ghost预制体")]
-    public GameObject dragGhostPrefab;
+    [Header("连线设置")]
+    public RectTransform lineContainer;
+    public Image linePrefab;
+    public Color highlightColor = Color.yellow;
+    public Color successColor = Color.green;
 
-    [Header("高亮颜色")]
-    public Color highlightColor = new Color(1f, 0.85f, 0f);
+    [Header("交互控制")]
+    [Tooltip("在搜索面板打开时需要禁用的脚本列表")]
+    public List<MonoBehaviour> scriptsToDisable = new List<MonoBehaviour>();
 
-    [Header("搜索框区域")]
-    public RectTransform searchDropZone;
+    private class ClueState
+    {
+        public string originalText;
+        public string targetLinkID;
+        public string resultText;
+        public bool isSolved;
+        public GameObject clueUI;
+    }
 
-    // 内部状态
-    private NoteManager.EvidenceData currentEvidenceData;
-    private List<SearchableKeyword> currentKeywords;
+    // 状态存储：证物ID -> 线索列表
+    private Dictionary<string, List<ClueState>> allEvidenceStates = new Dictionary<string, List<ClueState>>();
+
+    private List<ClueState> currentClueStates = new List<ClueState>();
     private string currentEvidenceID;
-    private HashSet<string> searchedKeywordsThisSession = new HashSet<string>();
 
-    // 拖拽状态
-    private GameObject activeDragGhost;
-    private string draggingKeyword;
-    private Canvas rootCanvas;
-
-    // 拖拽平滑判定
-    private Vector3 lastMouseDownPos;
-    private bool isDraggingThresholdPassed = false;
-
-    // 状态控制
-    private bool isSearchUsed = false;
+    private Image activeLine;
+    private int selectedClueIndex = -1;
+    private Vector2 lineFixedStartPos;
 
     private void Awake()
     {
         if (Instance == null) Instance = this;
         else Destroy(gameObject);
-
-        if (searchPanel != null)
-        {
-            rootCanvas = searchPanel.GetComponentInParent<Canvas>();
-        }
-        if (rootCanvas == null) rootCanvas = FindObjectOfType<Canvas>();
     }
 
     void Start()
     {
         if (searchPanel != null) searchPanel.SetActive(false);
-        if (searchResultText != null) searchResultText.text = "";
+        searchInputField.onEndEdit.AddListener(OnSearchSubmit);
     }
 
     void Update()
     {
         if (!searchPanel.activeSelf) return;
 
-        // 如果已经搜过了，就不再处理拖拽
-        if (isSearchUsed) return;
+        // ✅ 修复3：线段跟随鼠标 - 每帧更新，不在HandleLineDrawing中更新
+        if (selectedClueIndex != -1 && activeLine != null)
+        {
+            UpdateLine(activeLine.rectTransform, lineFixedStartPos, Input.mousePosition);
+        }
 
-        HandleKeywordDrag();
+        HandleLineDrawing();
+
+        if (Input.GetMouseButtonDown(1)) CancelSelection();
     }
 
     public void OpenSearchPanel(NoteManager.EvidenceData evidenceData, List<SearchableKeyword> keywords)
     {
-        currentEvidenceData = evidenceData;
-        currentKeywords = keywords;
+        ToggleExternalScripts(false);
         currentEvidenceID = evidenceData.evidenceID;
-        searchedKeywordsThisSession.Clear();
 
-        isSearchUsed = false;
-        if (dropZonePlaceholderText != null)
+        // 状态持久化判断
+        if (!allEvidenceStates.ContainsKey(currentEvidenceID))
         {
-            dropZonePlaceholderText.text = "将关键词拖入此处";
-            dropZonePlaceholderText.color = Color.white;
+            InitializeClues(evidenceData.desc, keywords);
+        }
+        else
+        {
+            currentClueStates = allEvidenceStates[currentEvidenceID];
         }
 
-        if (leftDetailImage != null) leftDetailImage.sprite = evidenceData.fullImage;
-        if (leftDetailName != null) leftDetailName.text = evidenceData.name;
+        RefreshClueUI();
 
-        RenderHighlightedDesc(evidenceData.desc);
-
-        if (searchResultText != null) searchResultText.text = "";
+        // ✅ 修复2：每次打开都清空搜索结果
+        searchResultDisplay.text = "";
+        searchInputField.text = "";
 
         searchPanel.SetActive(true);
+        searchInputField.ActivateInputField();
+    }
+
+    private void InitializeClues(string fullDesc, List<SearchableKeyword> keywords)
+    {
+        List<ClueState> newStates = new List<ClueState>();
+        string[] lines = fullDesc.Split(new[] { "\r\n", "\r", "\n" }, System.StringSplitOptions.None);
+
+        for (int i = 0; i < lines.Length; i++)
+        {
+            var state = new ClueState { originalText = lines[i], isSolved = false };
+            if (i < keywords.Count)
+            {
+                state.targetLinkID = keywords[i].keyword;
+                state.resultText = keywords[i].newDescriptionOnSearch;
+            }
+            newStates.Add(state);
+        }
+
+        allEvidenceStates[currentEvidenceID] = newStates;
+        currentClueStates = newStates;
+    }
+
+    private void RefreshClueUI()
+    {
+        foreach (Transform child in clueListParent) Destroy(child.gameObject);
+
+        for (int i = 0; i < currentClueStates.Count; i++)
+        {
+            int index = i;
+            GameObject item = Instantiate(clueItemPrefab, clueListParent);
+            currentClueStates[i].clueUI = item;
+
+            TMP_Text txt = item.GetComponentInChildren<TMP_Text>();
+
+            if (currentClueStates[i].isSolved)
+            {
+                txt.text = currentClueStates[i].resultText;
+                txt.color = successColor;
+            }
+            else
+            {
+                txt.text = currentClueStates[i].originalText;
+                txt.color = Color.white;
+            }
+
+            Button btn = item.GetComponent<Button>();
+            btn.onClick.AddListener(() => OnClueClicked(index));
+        }
+    }
+
+    private void OnClueClicked(int index)
+    {
+        if (currentClueStates[index].isSolved) return;
+
+        if (selectedClueIndex != -1)
+        {
+            CancelSelection();
+        }
+
+        selectedClueIndex = index;
+        lineFixedStartPos = Input.mousePosition;
+
+        foreach (var state in currentClueStates)
+        {
+            if (!state.isSolved && state.clueUI != null)
+                state.clueUI.GetComponentInChildren<TMP_Text>().color = Color.white;
+        }
+
+        currentClueStates[index].clueUI.GetComponentInChildren<TMP_Text>().color = highlightColor;
+
+        activeLine = Instantiate(linePrefab, lineContainer);
+        activeLine.gameObject.SetActive(true);
+        activeLine.color = highlightColor;
+    }
+
+    private void HandleLineDrawing()
+    {
+        if (selectedClueIndex == -1 || activeLine == null) return;
+
+        // ✅ 线段更新移到Update中每帧执行
+
+        if (Input.GetMouseButtonDown(0))
+        {
+            string linkID = GetResultLinkAtMouse();
+            if (!string.IsNullOrEmpty(linkID))
+            {
+                CheckMatch(linkID);
+            }
+        }
+    }
+
+    private void CheckMatch(string linkID)
+    {
+        var currentClue = currentClueStates[selectedClueIndex];
+        if (linkID == currentClue.targetLinkID)
+        {
+            Image lineToFade = activeLine;
+            int indexToSolve = selectedClueIndex;
+
+            activeLine = null;
+            selectedClueIndex = -1;
+
+            StartCoroutine(SuccessEffect(lineToFade, indexToSolve));
+        }
+        else
+        {
+            CancelSelection();
+        }
+    }
+
+    private System.Collections.IEnumerator SuccessEffect(Image line, int index)
+    {
+        Debug.Log($"=== SuccessEffect Started === Line: {(line != null ? line.gameObject.name : "NULL")}, Index: {index}");
+        Debug.Log($"Time.timeScale: {Time.timeScale}, GameObject active: {gameObject.activeInHierarchy}");
+
+        if (line == null)
+        {
+            Debug.LogWarning("Line is null in SuccessEffect - ABORT");
+            yield break;
+        }
+
+        // 立即标记为已解决并更新UI文本
+        currentClueStates[index].isSolved = true;
+        Debug.Log($"Marked clue {index} as solved");
+
+        if (currentClueStates[index].clueUI != null)
+        {
+            TMP_Text txt = currentClueStates[index].clueUI.GetComponentInChildren<TMP_Text>();
+            txt.text = currentClueStates[index].resultText;
+            txt.color = successColor;
+            Debug.Log($"Updated UI text to: {currentClueStates[index].resultText}");
+        }
+
+        // ✅ 线段变绿
+        line.color = successColor;
+        Debug.Log($"Line color changed to green");
+
+        // ✅ 使用 WaitForSecondsRealtime 代替 WaitForSeconds
+        Debug.Log($"Waiting 0.5 seconds before cleanup... (using realtime)");
+        float startTime = Time.realtimeSinceStartup;
+        yield return new WaitForSecondsRealtime(0.5f);
+        float endTime = Time.realtimeSinceStartup;
+        Debug.Log($"Wait completed! Actual time: {endTime - startTime}s");
+
+        // ✅ 删除 lineContainer 的所有子物体
+        Debug.Log($"=== Starting Line Cleanup ===");
+        Debug.Log($"LineContainer child count BEFORE: {lineContainer.childCount}");
+
+        int destroyedCount = 0;
+        foreach (Transform child in lineContainer)
+        {
+            Debug.Log($"Destroying child: {child.gameObject.name}");
+            Destroy(child.gameObject);
+            destroyedCount++;
+        }
+
+        Debug.Log($"Destroyed {destroyedCount} line objects");
+        Debug.Log($"LineContainer child count AFTER destroy call: {lineContainer.childCount}");
+
+        // 等待一帧后再检查
+        yield return null;
+        Debug.Log($"LineContainer child count AFTER one frame: {lineContainer.childCount}");
+
+        Debug.Log($"=== SuccessEffect Completed ===");
+        CheckAllComplete();
+    }
+
+    private void CheckAllComplete()
+    {
+        Debug.Log($"CheckAllComplete called. All solved? {currentClueStates.All(s => s.isSolved)}");
+
+        if (currentClueStates.All(s => s.isSolved))
+        {
+            Debug.Log("=== All clues solved! Updating evidence description ===");
+
+            string finalDesc = string.Join("\n", currentClueStates.Select(s => s.resultText));
+            Debug.Log($"Final description: {finalDesc}");
+
+            // ✅ 1. 更新 NoteManager 中存储的数据
+            NoteManager.Instance.UpdateEvidenceDescDirectly(currentEvidenceID, finalDesc);
+            Debug.Log($"Called UpdateEvidenceDescDirectly for {currentEvidenceID}");
+
+            // ✅ 2. 更新 Evidence 组件的 description
+            Evidence ev = NoteManager.Instance.GetEvidenceComponent(currentEvidenceID);
+            if (ev != null)
+            {
+                ev.description = finalDesc;
+                ev.SetUpdateFlag(); // 这个会在下次打开时显示红字提示
+                Debug.Log($"Updated Evidence component description");
+            }
+            else
+            {
+                Debug.LogWarning($"Evidence component not found for {currentEvidenceID}");
+            }
+
+            // ✅ 3. 标记搜索完成
+            NoteManager.Instance.MarkSearchAsCompleted(currentEvidenceID);
+            Debug.Log($"Marked search as completed for {currentEvidenceID}");
+
+            // ✅ 4. 【关键新增】立即通知 NoteManager 添加"线索更新"红字标记
+            // 这样玩家关闭搜索面板回到背包时，会看到【线索更新】提示
+            NoteManager.Instance.UpdateEvidenceInfo(currentEvidenceID, finalDesc);
+            Debug.Log($"Added pending update flag for {currentEvidenceID}");
+        }
+    }
+
+    private void OnSearchSubmit(string input)
+    {
+        if (string.IsNullOrEmpty(input)) return;
+
+        string result = "未找到相关结果。";
+
+        if (input.Contains("长颈鹿") || input.Contains("植食") || input.Contains("排泄"))
+        {
+            result = "<b>【饮食习惯】</b>\n" +
+                     "每天需摄入大量<link=\"Link_Fiber\">高纤维</link>、低营养的植物性食物，以合欢树叶为主。单日进食量可达<link=\"Link_Starvation\">30至60公斤</link>以满足能量需求。\n" +
+                     "此外，水果、<link=\"Link_Carrot\">胡萝卜</link>、南瓜等<link=\"Link_Sugar\">高糖分蔬果</link>是深受其欢迎的零食，通常作为正餐之外的补充。\n\n" +
+                     "<b>【排泄情况】</b>\n" +
+                     "<b>1. 排便</b>\n" +
+                     "性状：健康个体排出大量颗粒状、<link=\"Link_Fiber\">较为干燥</link>的深褐色固体粪球。\n" +
+                     "成分：粪便中几乎全是<link=\"Link_Fiber\">未消化的植物纤维</link>，散发草料发酵气味，无明显臭味。\n" +
+                     "频量：<link=\"Link_Starvation\">日排泄量可达15公斤左右</link>，排便次数约10至15次。控制能力较弱。\n\n" +
+                     "<b>2. 排尿</b>\n" +
+                     "每天约3至5次，单次尿量很大。长颈鹿对排尿具有较好的主动控制能力，会刻意避开睡觉区域。";
+        }
+
+        searchResultDisplay.text = result;
+        resultScrollRect.verticalNormalizedPosition = 1f;
+        searchInputField.text = "";
+    }
+
+    private void UpdateLine(RectTransform lineRect, Vector2 startScreenPos, Vector2 endScreenPos)
+    {
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(lineContainer, startScreenPos, null, out Vector2 localStart);
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(lineContainer, endScreenPos, null, out Vector2 localEnd);
+
+        Vector2 dir = localEnd - localStart;
+        float distance = dir.magnitude;
+
+        // ✅ 修复：设置锚点在左侧（线段起点）
+        lineRect.pivot = new Vector2(0, 0.5f); // 锚点在左边中心
+
+        // ✅ 线段起点位置
+        lineRect.anchoredPosition = localStart;
+
+        // ✅ 线段长度（宽度=距离，高度=粗细）
+        lineRect.sizeDelta = new Vector2(distance, 5f);
+
+        // ✅ 线段旋转角度
+        float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
+        lineRect.localRotation = Quaternion.Euler(0, 0, angle);
+    }
+
+    private string GetResultLinkAtMouse()
+    {
+        int linkIndex = TMP_TextUtilities.FindIntersectingLink(searchResultDisplay, Input.mousePosition, null);
+        if (linkIndex != -1) return searchResultDisplay.textInfo.linkInfo[linkIndex].GetLinkID();
+        return null;
+    }
+
+    private void CancelSelection()
+    {
+        selectedClueIndex = -1;
+        if (activeLine != null)
+        {
+            Destroy(activeLine.gameObject);
+            activeLine = null;
+        }
+
+        foreach (var state in currentClueStates)
+        {
+            if (!state.isSolved && state.clueUI != null)
+                state.clueUI.GetComponentInChildren<TMP_Text>().color = Color.white;
+        }
     }
 
     public void CloseSearchPanel()
     {
-        if (searchPanel == null || !searchPanel.activeSelf) return;
-
-        if (activeDragGhost != null)
-        {
-            Destroy(activeDragGhost);
-            activeDragGhost = null;
-        }
-        draggingKeyword = null;
-
-        // ✅ 原有的 append 拼凑逻辑已删除，因为我们改用了即时全量更新
-        searchedKeywordsThisSession.Clear();
+        CancelSelection();
         searchPanel.SetActive(false);
-
+        ToggleExternalScripts(true);
         NoteManager.Instance.OnSearchPanelClosed(currentEvidenceID);
     }
 
-    private void RenderHighlightedDesc(string desc)
+    private void ToggleExternalScripts(bool isEnabled)
     {
-        if (currentKeywords == null || currentKeywords.Count == 0)
+        foreach (var script in scriptsToDisable)
         {
-            if (leftDetailDesc != null) leftDetailDesc.text = desc;
-            return;
-        }
-
-        string colorHex = ColorUtility.ToHtmlStringRGB(highlightColor);
-        string result = desc;
-
-        foreach (var kw in currentKeywords)
-        {
-            if (string.IsNullOrEmpty(kw.keyword)) continue;
-            string replacement = $"<link=\"{kw.keyword}\"><color=#{colorHex}>{kw.keyword}</color></link>";
-            result = result.Replace(kw.keyword, replacement);
-        }
-
-        if (leftDetailDesc != null) leftDetailDesc.text = result;
-    }
-
-    private void HandleKeywordDrag()
-    {
-        if (Input.GetMouseButtonDown(0))
-        {
-            string hitKeyword = GetKeywordUnderMouse();
-            if (!string.IsNullOrEmpty(hitKeyword))
-            {
-                draggingKeyword = hitKeyword;
-                lastMouseDownPos = Input.mousePosition;
-                isDraggingThresholdPassed = false;
-            }
-        }
-
-        if (Input.GetMouseButton(0) && !string.IsNullOrEmpty(draggingKeyword))
-        {
-            if (!isDraggingThresholdPassed)
-            {
-                if (Vector3.Distance(lastMouseDownPos, Input.mousePosition) > 10f)
-                {
-                    isDraggingThresholdPassed = true;
-                    BeginDrag(draggingKeyword);
-                }
-            }
-
-            if (activeDragGhost != null)
-            {
-                activeDragGhost.GetComponent<RectTransform>().position = Input.mousePosition;
-            }
-        }
-
-        if (Input.GetMouseButtonUp(0))
-        {
-            if (isDraggingThresholdPassed && activeDragGhost != null)
-            {
-                EndDrag();
-            }
-            draggingKeyword = null;
-            isDraggingThresholdPassed = false;
-        }
-    }
-
-    private string GetKeywordUnderMouse()
-    {
-        if (leftDetailDesc == null) return null;
-        leftDetailDesc.ForceMeshUpdate();
-
-        Canvas parentCanvas = leftDetailDesc.GetComponentInParent<Canvas>();
-        Camera cam = (parentCanvas != null && parentCanvas.renderMode != RenderMode.ScreenSpaceOverlay)
-                     ? (parentCanvas.worldCamera ?? Camera.main) : null;
-
-        Vector2 localPoint;
-        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(leftDetailDesc.rectTransform, Input.mousePosition, cam, out localPoint))
-            return null;
-
-        TMP_TextInfo textInfo = leftDetailDesc.textInfo;
-        for (int i = 0; i < textInfo.characterCount; i++)
-        {
-            TMP_CharacterInfo charInfo = textInfo.characterInfo[i];
-            if (!charInfo.isVisible) continue;
-
-            if (localPoint.x >= charInfo.bottomLeft.x && localPoint.x <= charInfo.topRight.x &&
-                localPoint.y >= charInfo.bottomLeft.y && localPoint.y <= charInfo.topRight.y)
-            {
-                for (int j = 0; j < textInfo.linkCount; j++)
-                {
-                    TMP_LinkInfo linkInfo = textInfo.linkInfo[j];
-                    if (i >= linkInfo.linkTextfirstCharacterIndex && i < linkInfo.linkTextfirstCharacterIndex + linkInfo.linkTextLength)
-                        return linkInfo.GetLinkID();
-                }
-            }
-        }
-        return null;
-    }
-
-    private void BeginDrag(string keyword)
-    {
-        if (dragGhostPrefab == null || searchPanel == null) return;
-
-        activeDragGhost = Instantiate(dragGhostPrefab, rootCanvas.transform);
-        activeDragGhost.transform.SetAsLastSibling();
-
-        TMP_Text ghostText = activeDragGhost.GetComponentInChildren<TMP_Text>();
-        if (ghostText != null) ghostText.text = keyword;
-
-        activeDragGhost.transform.localScale = Vector3.one;
-        activeDragGhost.GetComponent<RectTransform>().position = Input.mousePosition;
-        activeDragGhost.layer = LayerMask.NameToLayer("UI");
-    }
-
-    private void EndDrag()
-    {
-        if (activeDragGhost == null) return;
-
-        Camera cam = (rootCanvas.renderMode == RenderMode.ScreenSpaceOverlay) ? null :
-                     (rootCanvas.worldCamera != null ? rootCanvas.worldCamera : Camera.main);
-
-        bool droppedInZone = false;
-        if (searchDropZone != null)
-        {
-            droppedInZone = RectTransformUtility.RectangleContainsScreenPoint(searchDropZone, Input.mousePosition, cam);
-        }
-
-        Destroy(activeDragGhost);
-        activeDragGhost = null;
-
-        if (droppedInZone && !string.IsNullOrEmpty(draggingKeyword))
-        {
-            OnKeywordDropped(draggingKeyword);
-        }
-    }
-
-    private void OnKeywordDropped(string keyword)
-    {
-        if (currentKeywords == null) return;
-        foreach (var kw in currentKeywords)
-        {
-            if (kw.keyword == keyword)
-            {
-                if (searchResultText != null) searchResultText.text = kw.searchResult;
-
-                if (dropZonePlaceholderText != null)
-                {
-                    dropZonePlaceholderText.text = keyword;
-                    dropZonePlaceholderText.color = highlightColor;
-                }
-
-                // ✅ 核心业务逻辑修改点：全量更新 NoteManager 里的缓存描述
-                // 在 SearchPanelManager.cs 的 OnKeywordDropped 方法中
-                if (!string.IsNullOrEmpty(kw.newDescriptionOnSearch))
-                {
-                    // 1. 更新 NoteManager 内部的列表数据（这样背包刷新时文字就变了）
-                    NoteManager.Instance.UpdateEvidenceDescDirectly(currentEvidenceID, kw.newDescriptionOnSearch);
-
-                    // 2. 更新场景中 Evidence 脚本里的 description 变量
-                    // ✅ 修复：通过 NoteManager 新写的接口获取组件，不受 SetActive(false) 影响
-                    Evidence ev = NoteManager.Instance.GetEvidenceComponent(currentEvidenceID);
-                    if (ev != null)
-                    {
-                        ev.description = kw.newDescriptionOnSearch;
-                        ev.SetUpdateFlag(); // 开启【线索更新】红字
-                        Debug.Log($"[Search] 已同步更新证物脚本数据: {currentEvidenceID}");
-                    }
-                }
-
-                searchedKeywordsThisSession.Add(keyword);
-                isSearchUsed = true;
-
-                NoteManager.Instance.MarkSearchAsCompleted(currentEvidenceID);
-                foreach (var etc in FindObjectsOfType<EvidenceTextController>(true))
-                {
-                    etc.RefreshStatus(); // 如果你给上面的脚本写了个公有刷新方法的话
-                }
-                return;
-            }
+            if (script != null) script.enabled = isEnabled;
         }
     }
 }
