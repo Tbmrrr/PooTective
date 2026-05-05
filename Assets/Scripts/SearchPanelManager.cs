@@ -314,12 +314,12 @@ public class SearchPanelManager : MonoBehaviour
         if (input.Contains("长颈鹿") || input.Contains("植食") || input.Contains("排泄"))
         {
             result = "<b>【饮食习惯】</b>\n" +
-                     "每天需摄入大量<link=\"Link_Fiber\">高纤维</link>、低营养的植物性食物，以合欢树叶为主。单日进食量可达<link=\"Link_Starvation\">30至60公斤</link>以满足能量需求。\n" +
-                     "此外，水果、<link=\"Link_Carrot\">胡萝卜</link>、南瓜等<link=\"Link_Sugar\">高糖分蔬果</link>是深受其欢迎的零食，通常作为正餐之外的补充。\n\n" +
+                     "每天需摄入大量高纤维、低营养的植物性食物，以合欢树叶为主。单日进食量可达30至60公斤以满足能量需求。\n" +
+                     "此外，水果、胡萝卜、南瓜等高糖分蔬果是深受其欢迎的零食，通常作为正餐之外的补充。\n\n" +
                      "<b>【排泄情况】</b>\n" +
                      "<b>1. 排便</b>\n" +
-                     "性状：健康个体排出大量颗粒状、<link=\"Link_Fiber\">较为干燥</link>的深褐色固体粪球。\n" +
-                     "成分：粪便中几乎全是<link=\"Link_Fiber\">未消化的植物纤维</link>，散发草料发酵气味，无明显臭味。\n" +
+                     "性状：健康个体排出大量颗粒状、<link=\"Link_Fiber\">较为干燥</link>的<link=\"Link_Carrot\">深褐色</link>固体粪球。\n" +
+                     "成分：粪便中几乎全是未消化的植物纤维，散发<link=\"Link_Sugar\">草料发酵气味</link>，无明显臭味。\n" +
                      "频量：<link=\"Link_Starvation\">日排泄量可达15公斤左右</link>，排便次数约10至15次。控制能力较弱。\n\n" +
                      "<b>2. 排尿</b>\n" +
                      "每天约3至5次，单次尿量很大。长颈鹿对排尿具有较好的主动控制能力，会刻意避开睡觉区域。";
