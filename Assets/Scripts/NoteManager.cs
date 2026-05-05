@@ -16,6 +16,11 @@ public class NoteManager : MonoBehaviour
     public GameObject listItemPrefab;
     public ScrollRect scrollRect;
 
+    // ✅ 新增：左侧背景图引用及其对应的图片资源
+    public Image leftBackgroundImage;
+    public Sprite evidenceTabBG;   // 证物页签时的背景图
+    public Sprite characterTabBG;  // 角色档案页签时的背景图
+
     [Header("常规 UI (打开笔记本时需隐藏)")]
     public GameObject normal2DUI;
 
@@ -263,6 +268,20 @@ public class NoteManager : MonoBehaviour
     public void SwitchTab(NoteTab newTab)
     {
         currentTab = newTab;
+
+        // ✅ 新增：根据页签切换左侧底图
+        if (leftBackgroundImage != null)
+        {
+            if (currentTab == NoteTab.Evidence)
+            {
+                if (evidenceTabBG != null) leftBackgroundImage.sprite = evidenceTabBG;
+            }
+            else
+            {
+                if (characterTabBG != null) leftBackgroundImage.sprite = characterTabBG;
+            }
+        }
+
         if (rightDetailGroup != null) rightDetailGroup.SetActive(false);
         if (searchHintObject != null) searchHintObject.SetActive(false);
 
