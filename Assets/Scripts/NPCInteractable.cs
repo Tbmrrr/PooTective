@@ -8,20 +8,17 @@ using System.Collections.Generic;
 [System.Serializable]
 public struct ConditionalEvidenceMapping
 {
-    [Tooltip("证物ID")]
     public string evidenceID;
-
-    [Tooltip("触发此响应的前置条件（留空 = 无条件，作为默认响应）")]
     public InteractionCondition[] conditions;
+    [TextArea(5, 10)] public string[] responseDialogue;
 
-    [Tooltip("满足条件时的对话")]
-    [TextArea(5, 10)]
-    public string[] responseDialogue;
-
-    [Tooltip("更新后的证物描述（留空则不更新）")]
+    [Header("更新-证物")]
     public string updatedDescription;
 
-    [Tooltip("条件说明（仅用于Inspector，方便查看）")]
+    [Header("更新-角色档案 (新增)")]
+    public string characterIDToUpdate; // 要更新的角色ID
+    [TextArea(3, 5)] public string newCharacterDesc; // 该角色的新描述
+
     public string conditionDescription;
 }
 
@@ -30,7 +27,12 @@ public struct EvidenceMapping
 {
     public string evidenceID;
     [TextArea(5, 10)] public string[] responseDialogue;
+
     public string updatedDescription;
+
+    [Header("更新-角色档案 (新增)")]
+    public string characterIDToUpdate;
+    [TextArea(3, 5)] public string newCharacterDesc;
 }
 
 public class NPCInteractable : MonoBehaviour
@@ -62,6 +64,10 @@ public class NPCInteractable : MonoBehaviour
 
     private string pendingUpdateID;
     private string pendingUpdateDesc;
+
+    // ✅ 新增：角色档案暂存
+    private string pendingCharID;
+    private string pendingCharDesc;
 
     void Start()
     {
@@ -178,6 +184,9 @@ public class NPCInteractable : MonoBehaviour
                         Debug.Log($"[条件质询] {npcDisplayName} 使用条件响应: {condMapping.conditionDescription}");
                         pendingUpdateID = evidenceID;
                         pendingUpdateDesc = condMapping.updatedDescription;
+                        // ✅ 记录角色更新
+                        pendingCharID = condMapping.characterIDToUpdate;
+                        pendingCharDesc = condMapping.newCharacterDesc;
                         DialogueManager.Instance.StartDialogue(condMapping.responseDialogue, this);
                         return;
                     }
@@ -192,6 +201,9 @@ public class NPCInteractable : MonoBehaviour
             {
                 pendingUpdateID = evidenceID;
                 pendingUpdateDesc = mapping.updatedDescription;
+                // ✅ 记录角色更新
+                pendingCharID = mapping.characterIDToUpdate;
+                pendingCharDesc = mapping.newCharacterDesc;
                 DialogueManager.Instance.StartDialogue(mapping.responseDialogue, this);
                 return;
             }
@@ -218,9 +230,14 @@ public class NPCInteractable : MonoBehaviour
         {
             NoteManager.Instance.UpdateEvidenceInfo(pendingUpdateID, pendingUpdateDesc);
         }
-        // 无论是否更新，都清空暂存数据
-        pendingUpdateID = null;
-        pendingUpdateDesc = null;
+        // ✅ 新增：更新角色档案
+        if (!string.IsNullOrEmpty(pendingCharID) && !string.IsNullOrEmpty(pendingCharDesc))
+        {
+            NoteManager.Instance.UpdateCharacterInfo(pendingCharID, pendingCharDesc);
+        }
+        // 清空所有暂存
+        pendingUpdateID = null; pendingUpdateDesc = null;
+        pendingCharID = null; pendingCharDesc = null;
 
         Invoke("ReleaseDialogueLock", 0.5f);
     }

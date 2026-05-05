@@ -310,10 +310,12 @@ public class SearchPanelManager : MonoBehaviour
         if (string.IsNullOrEmpty(input)) return;
 
         string result = "未找到相关结果。";
+        string lowerInput = input.ToLower(); // 转换为小写方便匹配
 
-        if (input.Contains("长颈鹿") || input.Contains("植食") || input.Contains("排泄"))
+        // 1. 长颈鹿 / 植食 / 排泄
+        if (lowerInput.Contains("长颈鹿") || lowerInput.Contains("植食") || lowerInput.Contains("排泄"))
         {
-            result = "<b>【饮食习惯】</b>\n" +
+            result = "<b>长颈鹿 植食性动物</b>\n" + "<b>【饮食习惯】</b>\n" +
                      "每天需摄入大量高纤维、低营养的植物性食物，以合欢树叶为主。单日进食量可达30至60公斤以满足能量需求。\n" +
                      "此外，水果、胡萝卜、南瓜等高糖分蔬果是深受其欢迎的零食，通常作为正餐之外的补充。\n\n" +
                      "<b>【排泄情况】</b>\n" +
@@ -324,9 +326,75 @@ public class SearchPanelManager : MonoBehaviour
                      "<b>2. 排尿</b>\n" +
                      "每天约3至5次，单次尿量很大。长颈鹿对排尿具有较好的主动控制能力，会刻意避开睡觉区域。";
         }
+        // 2. 乌鸦 / 杂食
+        else if (lowerInput.Contains("乌鸦") || lowerInput.Contains("杂食"))
+        {
+            result = "<b>乌鸦 杂食性动物</b>\n" + "<b>【饮食习惯】</b>\n" +
+                     "以烹煮后的谷物（如米饭、面包）、多种果实（浆果、苹果等）为主，也摄取昆虫制品（如炸蝗虫、蚕蛹）和烹煮过的蛋类。食性杂乱，是动物城中典型的杂食居民。\n\n" +
+                     "<b>【排泄情况】</b>\n" +
+                     "性状：粪便与尿液混合排出，呈液态或半液态，常混有<link=\"Link_UricAcid\">白色尿酸沉淀</link>。气味淡薄，略带酸腐。\n" +
+                     "成分：代谢废物主要以尿酸形式快速排出，以减轻飞行负荷。\n" +
+                     "频量：单次排泄量虽小（每次约数毫升），但全天排泄频繁，每日可达20次以上，日排量少于30克。由于飞行需要减轻体重，对排泄的控制能力较弱，难以主动憋住。";
+        }
+        // 3. 胡萝卜
+        else if (lowerInput.Contains("胡萝卜"))
+        {
+            result = "<b>【百科：胡萝卜】</b>\n" +
+                     "标志性的橙色源自丰富的<link=\"Link_Carotene\">β-胡萝卜素</link>，既可生食也可熟烹，营养价值极高。\n\n" +
+                     "其清甜的味道深受兔类及长颈鹿等植食动物的喜爱。过量摄入会导致体液或排泄物颜色发生<link=\"Link_OrangeSubstance\">暂时性改变</link>。";
+        }
+        // 4. 橙色物质 / 颜色 / 色素
+        else if (lowerInput.Contains("橙色物质") || lowerInput.Contains("橙色") || lowerInput.Contains("色素"))
+        {
+            result = "<b>【成因分析：橙色物质】</b>\n\n" +
+                     "<b>1. 天然食物</b>\n" +
+                     "大量食用胡萝卜、南瓜、甘薯等富含胡萝卜素的蔬果后，未被完全吸收的色素会随粪便排出。兔子小镇的居民对此早已见怪不怪。\n\n" +
+                     "<b>2. 合成色素</b>\n" +
+                     "某些橙色系的食用色素不易被消化，摄入后基本保持原色通过肠道。常见于彩色糖果、果冻、饮料等加工食品。";
+        }
+        // 4. 狒狒
+        else if (lowerInput.Contains("狒狒") || lowerInput.Contains("灵长类"))
+        {
+            result = "<b>狒狒 杂食性动物</b>\n" + "<b>【饮食习惯】</b>\n" +
+                     "以烹煮后的谷物、多种蔬果（苹果、香蕉、胡萝卜）为主，也摄入昆虫制品（如炸蝗虫、蚕蛹罐头）。食性杂乱，是典型的杂食者。\n\n" +
+                     "<b>【排泄情况】</b>\n" +
+                     "<b>1. 排便</b>\n" +
+                     "性状：深褐色短柱状，表面常粘有未消化的<link=\"Link_Fiber\">植物纤维</link>和<link=\"Link_Shell\">昆虫外壳</link>。气味中等偏酸，带发酵果香。\n" +
+                     "频量：日排便3~5次。具有强主动控制能力，会自觉划分功能区。\n\n" +
+                     "<b>2. 排尿</b>\n" +
+                     "尿液清澈，成年雄性气味较浓。可主动憋尿，行为常受<link=\"Link_SocialRank\">社会等级</link>影响。";
+        }
+        // 4. 野猪
+        else if (lowerInput.Contains("野猪") || lowerInput.Contains("山猪"))
+        {
+            result = "<b>野猪 杂食性动物</b>\n" + "<b>【饮食习惯】</b>\n" +
+                     "喜食根茎类蔬菜（土豆、红薯）、蘑菇、豆制品及面包虫干。食量巨大，偏好高纤维餐食。\n\n" +
+                     "<b>【排泄情况】</b>\n" +
+                     "<b>1. 排便</b>\n" +
+                     "性状：深褐至黑色的不规则团块，内含大量<link=\"Link_Mycelium\">菌丝</link>。气味浓烈刺鼻，混有泥土腥臭。\n" +
+                     "频量：日排便6~10次。控制能力较弱，基本随处排泄，但会避开休息区。\n\n" +
+                     "<b>2. 排尿</b>\n" +
+                     "单次尿量大。成年雄性会利用尿液进行<link=\"Link_Marking\">气味标记</link>（如树干、墙角）以争夺地盘。";
+        }
+        // 5. 白猪
+        else if (lowerInput.Contains("白猪") || lowerInput.Contains("家猪"))
+        {
+            result = "<b>白猪 杂食性动物</b>\n" + "<b>【饮食习惯】</b>\n" +
+                     "主要取食谷物（玉米、豆粕），偏爱南瓜、白菜、西瓜皮。是动物城中最常见的大型居民。\n\n" +
+                     "<b>【排泄情况】</b>\n" +
+                     "<b>1. 排便</b>\n" +
+                     "性状：黄褐色软圆柱状或糊状。气味较重，带有明显的<link=\"Link_Ammonia\">氨味</link>。\n" +
+                     "频量：日排便5~8次。极爱干净，能接受<link=\"Link_ToiletTraining\">定点排便训练</link>，但憋便耐力有限。\n\n" +
+                     "<b>2. 排尿</b>\n" +
+                     "尿液淡黄，排尿频繁。在良好的居住环境下会主动区分排泄区。";
+        }
 
         searchResultDisplay.text = result;
+
+        // 强制更新布局并重置滚动条位置
+        Canvas.ForceUpdateCanvases();
         resultScrollRect.verticalNormalizedPosition = 1f;
+
         searchInputField.text = "";
     }
 

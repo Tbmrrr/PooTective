@@ -501,6 +501,32 @@ public class NoteManager : MonoBehaviour
         }
     }
 
+    // ✅ 新增：更新角色档案的方法
+    public void UpdateCharacterInfo(string charID, string newDesc)
+    {
+        bool found = false;
+        for (int i = 0; i < characterFiles.Count; i++)
+        {
+            if (characterFiles[i].evidenceID == charID)
+            {
+                EvidenceData updatedData = characterFiles[i];
+                updatedData.desc = newDesc;
+                characterFiles[i] = updatedData;
+
+                // 同样加入红字提示标记
+                pendingUpdateIDs.Add(charID);
+                found = true;
+                Debug.Log($"<color=orange>[档案更新]</color> 角色 {charID} 的描述已更新。");
+                break;
+            }
+        }
+
+        if (!found)
+        {
+            Debug.LogWarning($"未找到 ID 为 {charID} 的角色档案，无法更新描述。");
+        }
+    }
+
     // 在 NoteManager.cs 中添加
     public bool HasEvidence(string id)
     {
