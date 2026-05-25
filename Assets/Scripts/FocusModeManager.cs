@@ -20,10 +20,13 @@ public class FocusModeManager : MonoBehaviour
     public LineRenderer guideLine;
 
     [Tooltip("拖入存放所有路径拐点(子物体)的父物体(e.g., FocusPath_Poo)")]
-    public Transform pooPathRoot; // <--- 这里是关键！
+    public Transform pooPathRoot;
 
     [Header("状态")]
     public bool isFocusModeActive = false;
+
+    // --- 新增：用于缓存 main camera 上的 pjntest 脚本 ---
+    private MonoBehaviour pjnTestComponent;
 
     private void Awake()
     {
@@ -39,6 +42,22 @@ public class FocusModeManager : MonoBehaviour
 
         // 初始隐藏导向线物体
         if (guideLine != null) guideLine.gameObject.SetActive(false);
+
+        // --- 新增：在 Start 时自动获取 MainCamera 上的 pjntest 脚本 ---
+        if (Camera.main != null)
+        {
+            // 使用 GetComponent(string) 可以避免因为类名拼写大小写问题导致编译报错
+            pjnTestComponent = Camera.main.GetComponent("pjntest") as MonoBehaviour;
+
+            if (pjnTestComponent == null)
+            {
+                Debug.LogWarning("Main Camera 上未找到 pjntest 脚本，请检查命名或挂载情况。");
+            }
+        }
+        else
+        {
+            Debug.LogError("场景中未找到 Tag 为 'MainCamera' 的摄像机！");
+        }
     }
 
     void Update()
@@ -60,6 +79,14 @@ public class FocusModeManager : MonoBehaviour
 
         HandleUISwitch();
 
+        // --- 新增：根据专注模式状态切换 pjntest 脚本的开关 ---
+        if (pjnTestComponent != null)
+        {
+            // 开启专注模式时禁用组件（!true = false），关闭时启用（!false = true）
+            pjnTestComponent.enabled = !isFocusModeActive;
+            Debug.Log($"pjntest 脚本已组件状态更新为: {pjnTestComponent.enabled}");
+        }
+
         if (isFocusModeActive)
         {
             ApplyFocusLogic();
@@ -80,35 +107,29 @@ public class FocusModeManager : MonoBehaviour
 
         if (guideLine != null)
         {
-            // 关键：如果关闭模式，直接隐藏并返回
             if (!active)
             {
                 guideLine.gameObject.SetActive(false);
                 return;
             }
 
-            // 开启模式时
             guideLine.gameObject.SetActive(true);
-            GenerateLineFromPathRoot(); // 这里只会被 ToggleFocusMode 调用一次
+            GenerateLineFromPathRoot();
         }
     }
 
-    // ✅ 新增的核心方法：读取子物体坐标连线
     private void GenerateLineFromPathRoot()
     {
         if (guideLine == null || pooPathRoot == null) return;
 
-        // 1. 获取所有子物体的位置（不包括父物体自己）
         List<Vector3> points = new List<Vector3>();
         foreach (Transform child in pooPathRoot)
         {
             points.Add(child.position);
         }
 
-        // 2. 如果拐点太少，无法连线，直接退出
         if (points.Count < 2) return;
 
-        // 3. 将坐标赋给 LineRenderer
         guideLine.positionCount = points.Count;
         guideLine.SetPositions(points.ToArray());
 
