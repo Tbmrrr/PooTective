@@ -2,16 +2,14 @@ using UnityEngine;
 
 [ExecuteAlways]
 [RequireComponent(typeof(Camera))]
-public class pjntest : MonoBehaviour
+public class pjnnewtest : MonoBehaviour
 {
     [SerializeField] private Shader postProcessShader;
 
     private Material postProcessMaterial;
-    private Camera targetCamera;
 
     private void OnEnable()
     {
-        targetCamera = GetComponent<Camera>();
         EnsureMaterial();
     }
 
@@ -22,6 +20,16 @@ public class pjntest : MonoBehaviour
             DestroyImmediate(postProcessMaterial);
             postProcessMaterial = null;
         }
+    }
+
+    private void OnValidate()
+    {
+        if (!isActiveAndEnabled)
+        {
+            return;
+        }
+
+        EnsureMaterial();
     }
 
     private void EnsureMaterial()
@@ -43,17 +51,6 @@ public class pjntest : MonoBehaviour
                 hideFlags = HideFlags.HideAndDontSave
             };
         }
-    }
-
-    private void OnValidate()
-    {
-        if (!isActiveAndEnabled)
-        {
-            return;
-        }
-
-        targetCamera = GetComponent<Camera>();
-        EnsureMaterial();
     }
 
     private void OnRenderImage(RenderTexture source, RenderTexture destination)
