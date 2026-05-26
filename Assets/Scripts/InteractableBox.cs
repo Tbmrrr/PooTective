@@ -6,9 +6,6 @@ using UnityEngine.UI;
 public class InteractableBox : MonoBehaviour
 {
     [Header("交互设置")]
-    [Tooltip("触发范围半径")]
-    public float interactRange = 2f;
-
     [Tooltip("玩家的Tag")]
     public string playerTag = "Player";
 
@@ -23,12 +20,15 @@ public class InteractableBox : MonoBehaviour
     [Tooltip("开箱动画的触发器名称")]
     public string openAnimTrigger = "Open";
 
+    [Header("事件设置")]
+    [Tooltip("开始播放动画时就启用的物体（例如特效、音效或弹出提示）")]
+    public GameObject objectToEnable;
+
     // ─────────────────────────────
     // 私有变量
     // ─────────────────────────────
     private bool _playerInRange = false;   // 玩家是否在范围内
     private bool _isOpened = false;   // 是否已开启
-    private Transform _playerTransform;    // 玩家Transform缓存
 
     // ─────────────────────────────
     void Start()
@@ -36,6 +36,10 @@ public class InteractableBox : MonoBehaviour
         // 初始隐藏交互UI
         if (interactUI != null)
             interactUI.SetActive(false);
+
+        // 确保目标物体在初始状态下是隐藏的
+        if (objectToEnable != null)
+            objectToEnable.SetActive(false);
 
         // 如果没手动拖入Animator，尝试自动获取
         if (boxAnimator == null)
@@ -48,39 +52,8 @@ public class InteractableBox : MonoBehaviour
         // 已开启 → 不再做任何检测
         if (_isOpened) return;
 
-        DetectPlayer();
+        // 保留输入监听！这样按 E 才能生效
         HandleInput();
-    }
-
-    // ─────────────────────────────
-    /// <summary>
-    /// 检测玩家是否进入/离开范围
-    /// </summary>
-    void DetectPlayer()
-    {
-        // 用 OverlapSphere 检测范围内的碰撞体
-        Collider[] hits = Physics.OverlapSphere(
-            transform.position,
-            interactRange
-        );
-
-        bool found = false;
-        foreach (Collider col in hits)
-        {
-            if (col.CompareTag(playerTag))
-            {
-                found = true;
-                _playerTransform = col.transform;
-                break;
-            }
-        }
-
-        // 状态发生变化时才更新UI
-        if (found != _playerInRange)
-        {
-            _playerInRange = found;
-            UpdateInteractUI(_playerInRange);
-        }
     }
 
     // ─────────────────────────────
@@ -96,6 +69,32 @@ public class InteractableBox : MonoBehaviour
     }
 
     // ─────────────────────────────
+    // 💡 替换掉了原本复杂的 Physics.OverlapSphere 检测
+    // 💡 采用 Unity 原生的 Trigger 触发器，直接读取你拉大的 Collider
+    // ─────────────────────────────
+    private void OnTriggerEnter(Collider other)
+    {
+        if (_isOpened) return;
+
+        if (other.CompareTag(playerTag))
+        {
+            _playerInRange = true;
+            UpdateInteractUI(true);
+        }
+    }
+
+    private void OnTriggerExit(Collider other)
+    {
+        if (_isOpened) return;
+
+        if (other.CompareTag(playerTag))
+        {
+            _playerInRange = false;
+            UpdateInteractUI(false);
+        }
+    }
+
+    // ─────────────────────────────
     /// <summary>
     /// 开启箱子
     /// </summary>
@@ -105,6 +104,13 @@ public class InteractableBox : MonoBehaviour
 
         // 隐藏交互UI
         UpdateInteractUI(false);
+
+        // 动画开始播放的瞬间，立即启用物体
+        if (objectToEnable != null)
+        {
+            objectToEnable.SetActive(true);
+            Debug.Log("[InteractableBox] 动画开始播放，关联物体已启用！");
+        }
 
         // 播放开箱动画
         if (boxAnimator != null)
@@ -133,7 +139,7 @@ public class InteractableBox : MonoBehaviour
         // 等待动画播放完毕（根据动画长度等待）
         yield return new WaitForSeconds(stateInfo.length);
 
-        // ✅ 关键：Speed设为0，冻结在最后一帧
+        // 关键：Speed设为0，冻结在最后一帧
         boxAnimator.speed = 0f;
 
         Debug.Log("[InteractableBox] 动画已冻结在最后一帧");
@@ -147,15 +153,5 @@ public class InteractableBox : MonoBehaviour
     {
         if (interactUI != null)
             interactUI.SetActive(show);
-    }
-
-    // ─────────────────────────────
-    /// <summary>
-    /// 在Scene视图中显示交互范围（方便调试）
-    /// </summary>
-    void OnDrawGizmosSelected()
-    {
-        Gizmos.color = Color.yellow;
-        Gizmos.DrawWireSphere(transform.position, interactRange);
     }
 }
