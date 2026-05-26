@@ -6,7 +6,6 @@ public class LockedPitchThirdPersonController : MonoBehaviour
     [Header("组件引用")]
     public Transform playerCamera;
     private CharacterController controller;
-    // --- 额外增加的变量，不影响原有引用 ---
     private Animator anim;
 
     [Header("移动设置")]
@@ -17,38 +16,38 @@ public class LockedPitchThirdPersonController : MonoBehaviour
     [Header("相机旋转设置")]
     public float mouseSensitivity = 3.0f;
 
+    [Header("相机碰撞设置")]
+    public float cameraCollisionRadius = 0.3f;  // 相机碰撞检测球体半径
+    public LayerMask collisionLayers = -1;      // 哪些层会阻挡相机(默认全部)
+    public float minDistance = 0.5f;            // 相机最近可以靠角色多近
+    public float recoverySpeed = 5.0f;          // 相机恢复原位的速度
+
     // 内部记录变量
-    private float yaw;              // 只有左右旋转
-    private float fixedPitch;       // 锁死的上下角度
-    private float horizontalDist;   // 锁死的水平距离
-    private float verticalHeight;   // 锁死的垂直高度
+    private float yaw;
+    private float fixedPitch;
+    private float horizontalDist;
+    private float verticalHeight;
     private float verticalVelocity;
+    private float currentDistance;              // 当前实际距离
 
     void Start()
     {
         controller = GetComponent<CharacterController>();
-        // --- 仅在此处增加获取子物体动画组件的代码 ---
         anim = GetComponentInChildren<Animator>();
 
         if (playerCamera == null) playerCamera = Camera.main.transform;
 
-        // 【核心：记录启动时的“黄金比例”】
         Vector3 offset = playerCamera.position - transform.position;
-
-        // 1. 记录水平面上的距离 (忽略Y轴后的长度)
         horizontalDist = new Vector3(offset.x, 0, offset.z).magnitude;
-
-        // 2. 记录垂直高度差
         verticalHeight = offset.y;
+        currentDistance = horizontalDist;  // 初始化当前距离
 
-        // 3. 记录初始角度
         yaw = playerCamera.eulerAngles.y;
-        fixedPitch = playerCamera.eulerAngles.x; // 记下这个角度，以后再也不动它
+        fixedPitch = playerCamera.eulerAngles.x;
     }
 
     void Update()
     {
-        // --- 暴力截断：如果 R 模式开启，直接跳过这一帧的所有逻辑 ---
         if (RebuildModeManager.Instance != null && RebuildModeManager.Instance.isRebuildModeActive)
         {
             return;
@@ -59,31 +58,39 @@ public class LockedPitchThirdPersonController : MonoBehaviour
 
     void HandleCamera()
     {
-        // 只有按下右键才允许左右转
-        if (Input.GetMouseButton(1))
-        {
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
 
-            yaw += Input.GetAxis("Mouse X") * mouseSensitivity;
-        }
-        else
-        {
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
-        }
+        yaw += Input.GetAxis("Mouse X") * mouseSensitivity;
 
-        // --- 计算相机的最终位置 ---
-        // 1. 根据 yaw 计算出一个方向向量，并拉伸到初始水平距离
+        // --- 计算理想的相机位置 ---
         Vector3 horizontalOffset = Quaternion.Euler(0, yaw, 0) * Vector3.back * horizontalDist;
+        Vector3 idealCameraPos = transform.position + horizontalOffset;
+        idealCameraPos.y = transform.position.y + verticalHeight;
 
-        // 2. 最终位置 = 角色位置 + 水平偏移 + 垂直高度
-        Vector3 targetCameraPos = transform.position + horizontalOffset;
-        targetCameraPos.y = transform.position.y + verticalHeight;
+        // --- 相机碰撞检测 ---
+        Vector3 cameraDirection = (idealCameraPos - transform.position).normalized;
+        float targetDistance = horizontalDist;
 
-        playerCamera.position = targetCameraPos;
+        // 从角色位置向相机理想位置发射射线
+        RaycastHit hit;
+        Vector3 rayStart = transform.position + Vector3.up * verticalHeight;  // 从角色头部高度开始
 
-        // 3. 保持初始的俯仰角和当前的偏航角
+        if (Physics.SphereCast(rayStart, cameraCollisionRadius, cameraDirection, out hit, horizontalDist, collisionLayers))
+        {
+            // 检测到障碍物,计算安全距离
+            targetDistance = Mathf.Max(hit.distance - cameraCollisionRadius, minDistance);
+        }
+
+        // 平滑过渡当前距离
+        currentDistance = Mathf.Lerp(currentDistance, targetDistance, Time.deltaTime * recoverySpeed);
+
+        // --- 使用调整后的距离计算最终位置 ---
+        Vector3 finalOffset = Quaternion.Euler(0, yaw, 0) * Vector3.back * currentDistance;
+        Vector3 finalCameraPos = transform.position + finalOffset;
+        finalCameraPos.y = transform.position.y + verticalHeight;
+
+        playerCamera.position = finalCameraPos;
         playerCamera.rotation = Quaternion.Euler(fixedPitch, yaw, 0);
     }
 
@@ -97,17 +104,13 @@ public class LockedPitchThirdPersonController : MonoBehaviour
 
         if (inputDir.magnitude >= 0.1f)
         {
-            // 移动方向始终参考当前的水平旋转角度 (yaw)
             float targetAngle = Mathf.Atan2(inputDir.x, inputDir.z) * Mathf.Rad2Deg + yaw;
-
-            // 角色平滑转向
             float angle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref rotationSpeed, 0.1f);
             transform.rotation = Quaternion.Euler(0, angle, 0);
 
             moveDir = Quaternion.Euler(0, targetAngle, 0) * Vector3.forward;
         }
 
-        // --- 针对 Mesh Collider 的防掉落重力逻辑 ---
         if (controller.isGrounded)
         {
             verticalVelocity = -2f;
@@ -117,7 +120,6 @@ public class LockedPitchThirdPersonController : MonoBehaviour
             verticalVelocity -= gravity * Time.deltaTime;
         }
 
-        // 限制最大坠落速度，防止瞬移穿过 Mesh
         verticalVelocity = Mathf.Max(verticalVelocity, -25f);
 
         Vector3 finalMove = moveDir * moveSpeed;
@@ -125,10 +127,8 @@ public class LockedPitchThirdPersonController : MonoBehaviour
 
         controller.Move(finalMove * Time.deltaTime);
 
-        // --- 额外增加的动画状态检测，放在函数最后，不干扰位移逻辑 ---
         if (anim != null)
         {
-            // 直接复用你原有的移动判断阈值 0.1f
             anim.SetBool("isWalking", inputDir.magnitude >= 0.1f);
         }
     }

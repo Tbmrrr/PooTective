@@ -41336,7 +41336,13 @@ MonoBehaviour:
   moveSpeed: 5
   rotationSpeed: 10
   gravity: 9.81
-  mouseSensitivity: 3
+  mouseSensitivity: 6
+  cameraCollisionRadius: 0.3
+  collisionLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  minDistance: 0.5
+  recoverySpeed: 5
 --- !u!54 &1306634441
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -48586,9 +48592,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 190d8f7599e6c4be7bf40c53f601cc94, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  outlineShader: {fileID: 4800000, guid: 9b822e6cfbddc4cad84e9025d18fded5, type: 3}
-  outlineColor: {r: 0, g: 0, b: 0, a: 1}
-  outlineThickness: 1
+  postProcessShader: {fileID: 0}
 --- !u!4 &1543695740 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: f1d571949c87a1f4f9c0a79b68a79508, type: 3}
@@ -58556,9 +58560,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 190d8f7599e6c4be7bf40c53f601cc94, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  outlineShader: {fileID: 4800000, guid: 9b822e6cfbddc4cad84e9025d18fded5, type: 3}
-  outlineColor: {r: 0, g: 0, b: 0, a: 1}
-  outlineThickness: 0.2
+  postProcessShader: {fileID: 0}
 --- !u!81 &1832796486
 AudioListener:
   m_ObjectHideFlags: 0
