@@ -3966,6 +3966,12 @@ MonoBehaviour:
   conditionalDialogues: []
   displayModel: {fileID: 440337273}
   interactPrompt: {fileID: 796596640}
+  useCustomDisplaySettings: 0
+  customForwardDistance: 1.2
+  customUpwardOffset: 0.1
+  customSideOffset: 0
+  customFlyDuration: 0.6
+  customDisplayScaleFactor: 2
 --- !u!4 &123581172 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 452239ef01bb1482f8272e8ec8badd25, type: 3}
@@ -4712,6 +4718,12 @@ MonoBehaviour:
   conditionalDialogues: []
   displayModel: {fileID: 1442762887}
   interactPrompt: {fileID: 1861905375}
+  useCustomDisplaySettings: 1
+  customForwardDistance: 1
+  customUpwardOffset: 0.12
+  customSideOffset: 0
+  customFlyDuration: 0.6
+  customDisplayScaleFactor: 2
 --- !u!65 &135676257
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -5239,6 +5251,12 @@ MonoBehaviour:
   conditionalDialogues: []
   displayModel: {fileID: 0}
   interactPrompt: {fileID: 443193221}
+  useCustomDisplaySettings: 0
+  customForwardDistance: 1.2
+  customUpwardOffset: 0.1
+  customSideOffset: 0
+  customFlyDuration: 0.6
+  customDisplayScaleFactor: 2
 --- !u!1001 &159468958
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -5402,6 +5420,12 @@ MonoBehaviour:
   conditionalDialogues: []
   displayModel: {fileID: 0}
   interactPrompt: {fileID: 500687585}
+  useCustomDisplaySettings: 0
+  customForwardDistance: 1.2
+  customUpwardOffset: 0.1
+  customSideOffset: 0
+  customFlyDuration: 0.6
+  customDisplayScaleFactor: 2
 --- !u!1 &166759664
 GameObject:
   m_ObjectHideFlags: 0
@@ -17154,6 +17178,12 @@ MonoBehaviour:
   conditionalDialogues: []
   displayModel: {fileID: 943955156}
   interactPrompt: {fileID: 1124763924}
+  useCustomDisplaySettings: 1
+  customForwardDistance: 0.4
+  customUpwardOffset: -0.23
+  customSideOffset: -0.49
+  customFlyDuration: 0.6
+  customDisplayScaleFactor: 2
 --- !u!1 &532788336 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: e86e6201ee197478f95a56ff00473179, type: 3}
@@ -17708,6 +17738,12 @@ MonoBehaviour:
     conditionDescription: "\u672A\u548C\u62A5\u7EB8\u4EA4\u4E92\u3001\u8D28\u8BE2\u8FC7"
   displayModel: {fileID: 1569032074}
   interactPrompt: {fileID: 437392718}
+  useCustomDisplaySettings: 1
+  customForwardDistance: 0.78
+  customUpwardOffset: -0
+  customSideOffset: 0.14
+  customFlyDuration: 0.6
+  customDisplayScaleFactor: 2
 --- !u!4 &537527443 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: fb05311d7de5942469908fa6ec6f023b, type: 3}
@@ -21017,6 +21053,12 @@ MonoBehaviour:
   conditionalDialogues: []
   displayModel: {fileID: 620496959}
   interactPrompt: {fileID: 994244667}
+  useCustomDisplaySettings: 0
+  customForwardDistance: 1.2
+  customUpwardOffset: 0.1
+  customSideOffset: 0
+  customFlyDuration: 0.6
+  customDisplayScaleFactor: 2
 --- !u!65 &616381698
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -40629,6 +40671,12 @@ MonoBehaviour:
   conditionalDialogues: []
   displayModel: {fileID: 845237556}
   interactPrompt: {fileID: 290136534}
+  useCustomDisplaySettings: 0
+  customForwardDistance: 1.2
+  customUpwardOffset: 0.1
+  customSideOffset: 0
+  customFlyDuration: 0.6
+  customDisplayScaleFactor: 2
 --- !u!65 &1234455083
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -49338,6 +49386,12 @@ MonoBehaviour:
   conditionalDialogues: []
   displayModel: {fileID: 1071069202}
   interactPrompt: {fileID: 2113292315}
+  useCustomDisplaySettings: 1
+  customForwardDistance: 0.72
+  customUpwardOffset: 0
+  customSideOffset: 0
+  customFlyDuration: 0.6
+  customDisplayScaleFactor: 2
 --- !u!65 &1536595532
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -64778,6 +64832,12 @@ MonoBehaviour:
     conditionDescription: 
   displayModel: {fileID: 1298439934}
   interactPrompt: {fileID: 420464985}
+  useCustomDisplaySettings: 0
+  customForwardDistance: 1.2
+  customUpwardOffset: 0.1
+  customSideOffset: 0
+  customFlyDuration: 0.6
+  customDisplayScaleFactor: 2
 --- !u!1001 &1966529553
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -69712,6 +69772,12 @@ MonoBehaviour:
   conditionalDialogues: []
   displayModel: {fileID: 469893608}
   interactPrompt: {fileID: 856285852}
+  useCustomDisplaySettings: 0
+  customForwardDistance: 1.2
+  customUpwardOffset: 0.1
+  customSideOffset: 0
+  customFlyDuration: 0.6
+  customDisplayScaleFactor: 2
   destroyDelay: 0.1
 --- !u!135 &2108812041
 SphereCollider:

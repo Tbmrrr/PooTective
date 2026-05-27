@@ -2,6 +2,17 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 
+// ✅ 新增：证物自定义展示参数容器
+[System.Serializable]
+public class EvidenceDisplaySettings
+{
+    public float forwardDistance;
+    public float upwardOffset;
+    public float sideOffset;
+    public float flyDuration;
+    public float displayScaleFactor;
+}
+
 public class EvidenceDisplayManager : MonoBehaviour
 {
     public static EvidenceDisplayManager Instance { get; private set; }
@@ -9,12 +20,12 @@ public class EvidenceDisplayManager : MonoBehaviour
     [Header("摄像机设置")]
     public Camera targetCamera;
 
-    [Header("展示位置设置")]
+    [Header("展示位置设置（全局默认值）")]
     public float forwardDistance = 1.2f;
     public float upwardOffset = 0.1f;
     public float sideOffset = 0f;
 
-    [Header("动画参数")]
+    [Header("动画参数（全局默认值）")]
     public float flyDuration = 0.6f;
     public float displayScaleFactor = 2.0f;
     public AnimationCurve flyCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
@@ -22,10 +33,16 @@ public class EvidenceDisplayManager : MonoBehaviour
     [Header("层级设置")]
     public string displayLayer = "Default";
 
+    // ✅ 新增：当前实际使用的参数（运行时决定用全局还是自定义）
+    private float currentForwardDistance;
+    private float currentUpwardOffset;
+    private float currentSideOffset;
+    private float currentFlyDuration;
+    private float currentDisplayScaleFactor;
+
     private GameObject currentDisplayObject;
     private Coroutine displayCoroutine;
     private Coroutine followCoroutine;
-
     private List<GameObject> pages = new List<GameObject>();
     private int currentPageIndex = 0;
 
@@ -41,9 +58,30 @@ public class EvidenceDisplayManager : MonoBehaviour
         if (targetCamera == null) Debug.LogError("[Debug] 找不到主摄像机！请在 Inspector 检查 Target Camera 赋值。");
     }
 
-    public void ShowEvidence(GameObject evidencePrefab, Transform startTransform)
+    // ✅ 修改：增加可选参数 customSettings，默认为 null（即使用全局参数）
+    public void ShowEvidence(GameObject evidencePrefab, Transform startTransform, EvidenceDisplaySettings customSettings = null)
     {
         Debug.Log($"<color=cyan>[Debug] 1. ShowEvidence 被调用。Prefab: {(evidencePrefab != null ? evidencePrefab.name : "空!")}</color>");
+
+        // ✅ 新增：在展示开始时决定使用哪套参数
+        if (customSettings != null)
+        {
+            currentForwardDistance = customSettings.forwardDistance;
+            currentUpwardOffset = customSettings.upwardOffset;
+            currentSideOffset = customSettings.sideOffset;
+            currentFlyDuration = customSettings.flyDuration;
+            currentDisplayScaleFactor = customSettings.displayScaleFactor;
+            Debug.Log("[Debug] 使用证物自定义展示参数。");
+        }
+        else
+        {
+            currentForwardDistance = forwardDistance;
+            currentUpwardOffset = upwardOffset;
+            currentSideOffset = sideOffset;
+            currentFlyDuration = flyDuration;
+            currentDisplayScaleFactor = displayScaleFactor;
+            Debug.Log("[Debug] 使用全局默认展示参数。");
+        }
 
         if (currentDisplayObject != null) HideEvidence();
 
@@ -85,7 +123,6 @@ public class EvidenceDisplayManager : MonoBehaviour
     {
         pages.Clear();
         currentPageIndex = 0;
-
         Debug.Log($"[Debug] 3. 开始扫描子物体...");
 
         foreach (Transform child in currentDisplayObject.transform)
@@ -111,24 +148,33 @@ public class EvidenceDisplayManager : MonoBehaviour
     private IEnumerator FlyToDisplayPosition(Vector3 startPos)
     {
         Debug.Log("[Debug] 5. 飞行动画开始执行...");
+
         float elapsed = 0f;
         Vector3 startScale = currentDisplayObject.transform.localScale;
 
-        if (displayScaleFactor <= 0) Debug.LogWarning("[Debug] 警告：displayScaleFactor 为 0，物体会不可见！");
+        if (currentDisplayScaleFactor <= 0)
+            Debug.LogWarning("[Debug] 警告：displayScaleFactor 为 0，物体会不可见！");
 
-        while (elapsed < flyDuration)
+        // ✅ 修改：while 条件改用 currentFlyDuration
+        while (elapsed < currentFlyDuration)
         {
             elapsed += Time.deltaTime;
-            float t = flyCurve.Evaluate(elapsed / flyDuration);
+
+            // ✅ 修改：t 的计算改用 currentFlyDuration
+            float t = flyCurve.Evaluate(elapsed / currentFlyDuration);
 
             Vector3 targetPos = GetDisplayPosition();
             currentDisplayObject.transform.position = Vector3.Lerp(startPos, targetPos, t);
 
             // 旋转适配
             float camY = targetCamera.transform.eulerAngles.y;
-            currentDisplayObject.transform.rotation = Quaternion.Euler(0, camY + 180f, 0) * Quaternion.Euler(0f, -90f, 20f);
+            currentDisplayObject.transform.rotation =
+                Quaternion.Euler(0, camY + 180f, 0) * Quaternion.Euler(0f, -90f, 20f);
 
-            currentDisplayObject.transform.localScale = Vector3.Lerp(startScale, startScale * displayScaleFactor, t);
+            // ✅ 修改：缩放改用 currentDisplayScaleFactor
+            currentDisplayObject.transform.localScale =
+                Vector3.Lerp(startScale, startScale * currentDisplayScaleFactor, t);
+
             yield return null;
         }
 
@@ -147,7 +193,8 @@ public class EvidenceDisplayManager : MonoBehaviour
             );
 
             float camY = targetCamera.transform.eulerAngles.y;
-            currentDisplayObject.transform.rotation = Quaternion.Euler(0, camY + 180f, 0) * Quaternion.Euler(0f, -90f, 20f);
+            currentDisplayObject.transform.rotation =
+                Quaternion.Euler(0, camY + 180f, 0) * Quaternion.Euler(0f, -90f, 20f);
 
             if (Input.GetMouseButtonDown(0)) CheckForPageTurn();
 
@@ -163,12 +210,10 @@ public class EvidenceDisplayManager : MonoBehaviour
         Ray ray = targetCamera.ScreenPointToRay(Input.mousePosition);
         RaycastHit hit;
 
-        // 2. 只要射线撞到了“任何”东西（说明你点在证物上了）
+        // 2. 只要射线撞到了"任何"东西（说明你点在证物上了）
         if (Physics.Raycast(ray, out hit))
         {
             Debug.Log($"<color=yellow>[Debug] 强制翻页触发！撞击物体: {hit.transform.name}</color>");
-
-            // 直接执行翻页，不再做 IsChildOf 的层级判断
             TurnToNextPage();
         }
     }
@@ -190,13 +235,13 @@ public class EvidenceDisplayManager : MonoBehaviour
         Debug.Log("[Debug] 证物已隐藏并销毁。");
     }
 
+    // ✅ 修改：改用 current 系列变量
     private Vector3 GetDisplayPosition()
     {
-        // 计算目标位置，确保它在相机正前方
         return targetCamera.transform.position +
-               targetCamera.transform.forward * forwardDistance +
-               targetCamera.transform.up * upwardOffset +
-               targetCamera.transform.right * sideOffset;
+               targetCamera.transform.forward * currentForwardDistance +
+               targetCamera.transform.up * currentUpwardOffset +
+               targetCamera.transform.right * currentSideOffset;
     }
 
     private void DisablePhysicsForInteraction(GameObject obj)

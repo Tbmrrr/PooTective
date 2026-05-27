@@ -69,6 +69,16 @@ public class Evidence : MonoBehaviour
     [Header("交互反馈")]
     public GameObject interactPrompt;
 
+    [Header("自定义展示参数")]
+    [Tooltip("勾选后使用下方自定义参数，否则使用 EvidenceDisplayManager 的全局参数")]
+    public bool useCustomDisplaySettings = false;
+
+    public float customForwardDistance = 1.2f;
+    public float customUpwardOffset = 0.1f;
+    public float customSideOffset = 0f;
+    public float customFlyDuration = 0.6f;
+    public float customDisplayScaleFactor = 2.0f;
+
     private bool hasInteracted = false;
     private bool isShowingEvidence = false;
 
@@ -153,8 +163,24 @@ public class Evidence : MonoBehaviour
             // 获取你在场景/Inspector里给这个子模型调好的角度（比如报纸的 0, 90, 0）
             Quaternion customRotation = displayModel.transform.localRotation;
 
-            // ：只传模型和起点（Transform）
-            EvidenceDisplayManager.Instance.ShowEvidence(displayModel, transform);
+            
+            // 修改后
+            if (useCustomDisplaySettings)
+            {
+                EvidenceDisplaySettings settings = new EvidenceDisplaySettings
+                {
+                    forwardDistance = customForwardDistance,
+                    upwardOffset = customUpwardOffset,
+                    sideOffset = customSideOffset,
+                    flyDuration = customFlyDuration,
+                    displayScaleFactor = customDisplayScaleFactor
+                };
+                EvidenceDisplayManager.Instance.ShowEvidence(displayModel, transform, settings);
+            }
+            else
+            {
+                EvidenceDisplayManager.Instance.ShowEvidence(displayModel, transform);
+            }
             isShowingEvidence = true;
         }
 
