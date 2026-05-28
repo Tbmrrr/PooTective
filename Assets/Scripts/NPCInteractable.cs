@@ -16,8 +16,8 @@ public struct ConditionalEvidenceMapping
     public string updatedDescription;
 
     [Header("更新-角色档案 (新增)")]
-    public string characterIDToUpdate; // 要更新的角色ID
-    [TextArea(3, 5)] public string newCharacterDesc; // 该角色的新描述
+    public string characterIDToUpdate;
+    [TextArea(3, 5)] public string newCharacterDesc;
 
     public string conditionDescription;
 }
@@ -44,7 +44,6 @@ public class NPCInteractable : MonoBehaviour
     [Header("世界空间提示 (World Space UI)")]
     public GameObject pressEPrompt;
     public GameObject optionsMenu;
-    // ✅ 新增：NPC 名字 UI 的引用
     [Tooltip("显示 NPC 名字的 UI 物体")]
     public GameObject npcNameUI;
 
@@ -65,15 +64,16 @@ public class NPCInteractable : MonoBehaviour
     private string pendingUpdateID;
     private string pendingUpdateDesc;
 
-    // ✅ 新增：角色档案暂存
     private string pendingCharID;
     private string pendingCharDesc;
+
+    // ✅ 全局标志：玩家正在选择对话选项（按下E后、选1/2前）
+    public static bool isChoosingOption = false;
 
     void Start()
     {
         if (pressEPrompt != null) pressEPrompt.SetActive(false);
         if (optionsMenu != null) optionsMenu.SetActive(false);
-        // ✅ 初始隐藏名字
         if (npcNameUI != null) npcNameUI.SetActive(false);
 
         if (dialogueFile != null)
@@ -98,7 +98,6 @@ public class NPCInteractable : MonoBehaviour
             if (!isWaitingForChoice && !isDialogueJustFinished)
             {
                 if (pressEPrompt != null) pressEPrompt.SetActive(true);
-                // ✅ 走进范围显示名字
                 if (npcNameUI != null) npcNameUI.SetActive(true);
             }
         }
@@ -114,11 +113,16 @@ public class NPCInteractable : MonoBehaviour
 
     public void OnInteract()
     {
+        Debug.Log($"OnInteract | dialogueActive={DialogueManager.Instance.isDialogueActive} | isWaiting={isWaitingForChoice} | justFinished={isDialogueJustFinished}");
         if (DialogueManager.Instance.isDialogueActive || isWaitingForChoice || isDialogueJustFinished) return;
 
         if (pressEPrompt != null) pressEPrompt.SetActive(false);
-        // ✅ 交互开始时（选择菜单开启时）通常保持名字显示或根据需求关闭，这里保持一致性
         if (optionsMenu != null) optionsMenu.SetActive(true);
+
+        // ✅ 按下E的瞬间就锁视角、释放鼠标
+        isChoosingOption = true;
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
 
         SetPlayerMovement(false);
         isWaitingForChoice = true;
@@ -126,9 +130,11 @@ public class NPCInteractable : MonoBehaviour
 
     private void OnChoiceSelected(int choice)
     {
+        // ✅ 选完后交由对话/背包状态接管，清除选项标志
+        isChoosingOption = false;
+
         isWaitingForChoice = false;
         if (optionsMenu != null) optionsMenu.SetActive(false);
-        // ✅ 选好后进入对话，隐藏名字 UI 以免遮挡对话框
         if (npcNameUI != null) npcNameUI.SetActive(false);
 
         if (choice == 1) StartNormalQuestion();
@@ -158,23 +164,19 @@ public class NPCInteractable : MonoBehaviour
     public void ReceiveEvidence(string evidenceID)
     {
         if (optionsMenu != null) optionsMenu.SetActive(false);
-        // ✅ 提交证物进入对话前隐藏名字
         if (npcNameUI != null) npcNameUI.SetActive(false);
 
-        // ===== 记录质询历史 =====
         if (InteractionHistoryManager.Instance != null)
         {
             InteractionHistoryManager.Instance.RecordEvidencePresented(npcDisplayName, evidenceID);
         }
 
-        // ===== 优先检查条件质询 =====
         if (conditionalEvidenceResponses != null && conditionalEvidenceResponses.Count > 0)
         {
             foreach (var condMapping in conditionalEvidenceResponses)
             {
                 if (condMapping.evidenceID == evidenceID)
                 {
-                    // 检查条件
                     bool conditionsMet = InteractionHistoryManager.Instance != null
                         ? InteractionHistoryManager.Instance.CheckConditions(condMapping.conditions)
                         : (condMapping.conditions == null || condMapping.conditions.Length == 0);
@@ -184,7 +186,6 @@ public class NPCInteractable : MonoBehaviour
                         Debug.Log($"[条件质询] {npcDisplayName} 使用条件响应: {condMapping.conditionDescription}");
                         pendingUpdateID = evidenceID;
                         pendingUpdateDesc = condMapping.updatedDescription;
-                        // ✅ 记录角色更新
                         pendingCharID = condMapping.characterIDToUpdate;
                         pendingCharDesc = condMapping.newCharacterDesc;
                         DialogueManager.Instance.StartDialogue(condMapping.responseDialogue, this);
@@ -194,14 +195,12 @@ public class NPCInteractable : MonoBehaviour
             }
         }
 
-        // ===== 检查简单质询 =====
         foreach (var mapping in evidenceResponses)
         {
             if (mapping.evidenceID == evidenceID)
             {
                 pendingUpdateID = evidenceID;
                 pendingUpdateDesc = mapping.updatedDescription;
-                // ✅ 记录角色更新
                 pendingCharID = mapping.characterIDToUpdate;
                 pendingCharDesc = mapping.newCharacterDesc;
                 DialogueManager.Instance.StartDialogue(mapping.responseDialogue, this);
@@ -209,33 +208,32 @@ public class NPCInteractable : MonoBehaviour
             }
         }
 
-        // ===== 没有匹配的响应，使用默认错误响应 =====
         DialogueManager.Instance.StartDialogue(defaultWrongResponse, this);
     }
 
     public void OnDialogueComplete()
     {
+        // ✅ 对话结束时也确保清除标志（防止异常状态残留）
+        isChoosingOption = false;
+
         isWaitingForChoice = false;
         if (optionsMenu != null) optionsMenu.SetActive(false);
         if (pressEPrompt != null) pressEPrompt.SetActive(false);
-        // ✅ 对话结束完全重置 UI 状态
         if (npcNameUI != null) npcNameUI.SetActive(false);
 
         isDialogueJustFinished = true;
 
         SetPlayerMovement(true);
 
-        // 同时判断 ID 和描述都不为空，留空 updatedDescription 则不做任何更新
         if (!string.IsNullOrEmpty(pendingUpdateID) && !string.IsNullOrEmpty(pendingUpdateDesc))
         {
             NoteManager.Instance.UpdateEvidenceInfo(pendingUpdateID, pendingUpdateDesc);
         }
-        // ✅ 新增：更新角色档案
         if (!string.IsNullOrEmpty(pendingCharID) && !string.IsNullOrEmpty(pendingCharDesc))
         {
             NoteManager.Instance.UpdateCharacterInfo(pendingCharID, pendingCharDesc);
         }
-        // 清空所有暂存
+
         pendingUpdateID = null; pendingUpdateDesc = null;
         pendingCharID = null; pendingCharDesc = null;
 
@@ -249,12 +247,14 @@ public class NPCInteractable : MonoBehaviour
 
     private void ResetInteraction()
     {
+        // ✅ 离开范围也要清除标志，防止玩家跑出范围后视角永久锁死
+        isChoosingOption = false;
+
         isWaitingForChoice = false;
         isDialogueJustFinished = false;
         SetPlayerMovement(true);
         if (pressEPrompt != null) pressEPrompt.SetActive(false);
         if (optionsMenu != null) optionsMenu.SetActive(false);
-        // ✅ 离开范围隐藏名字
         if (npcNameUI != null) npcNameUI.SetActive(false);
     }
 

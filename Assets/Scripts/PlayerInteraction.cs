@@ -1,5 +1,5 @@
 using UnityEngine;
-
+using System.Linq;
 public class PlayerInteraction : MonoBehaviour
 {
     [Header("按键设置")]
@@ -14,22 +14,21 @@ public class PlayerInteraction : MonoBehaviour
 
     void Update()
     {
-        // --- 核心修复 1：增加笔记本打开状态的判断 ---
-        bool isNoteOpen = NoteManager.Instance != null && NoteManager.Instance.notePanel.activeSelf;
-        bool isDialogueActive = DialogueManager.Instance != null && DialogueManager.Instance.isDialogueActive;
+        bool isNoteOpen = NoteManager.Instance != null
+            && NoteManager.Instance.notePanel != null
+            && NoteManager.Instance.notePanel.activeSelf;
+        bool isDialogueActive = DialogueManager.Instance != null
+            && DialogueManager.Instance.isDialogueActive;
 
-        // 如果正在对话，或者正在看笔记本，禁止一切 E 键交互
         if (isDialogueActive || isNoteOpen) return;
 
-        // 统一交互逻辑 (按 E)
         if (Input.GetKeyDown(interactKey))
         {
-            // 优先级判定：证物 > 门 > NPC
+            Debug.Log($"E pressed | NPC={currentNPC} | Evidence={currentEvidence} | dialogue={isDialogueActive} | note={isNoteOpen} | choosing={NPCInteractable.isChoosingOption}");
+
             if (currentEvidence != null)
             {
                 currentEvidence.OnInteract();
-                // --- 核心修复 2：不要在这里手动设为 null ---
-                // 交给 OnTriggerExit 或者 Evidence 脚本内部的 hasInteracted 去控制逻辑
             }
             else if (currentDoor != null)
             {
@@ -41,18 +40,15 @@ public class PlayerInteraction : MonoBehaviour
             }
         }
 
-        // 2. 重建模式逻辑 (R) 保持不变
         if (Input.GetKeyDown(pooKey))
         {
-            // --- ✅ 新增：优先判定 Poo2 的快捷拾取 ---
             if (currentEvidence != null && currentEvidence.evidenceID == "Poo2")
             {
                 currentEvidence.OnSpecialInteractR();
-                currentEvidence = null; // 捡走后清空引用
-                return; // 执行完特殊逻辑直接返回，不触发后面的重建模式切换
+                currentEvidence = null;
+                return;
             }
 
-            // --- 原有的逻辑 ---
             if (RebuildModeManager.Instance != null && RebuildModeManager.Instance.hasUnlockedRebuild)
             {
                 RebuildModeManager.Instance.ToggleRebuildMode();
@@ -71,6 +67,7 @@ public class PlayerInteraction : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
+        Debug.Log($"OnTriggerEnter: {other.gameObject.name}");
         // 检测证物
         Evidence evidence = other.GetComponent<Evidence>();
         if (evidence != null)
@@ -123,10 +120,34 @@ public class PlayerInteraction : MonoBehaviour
 
         // 离开 NPC
         NPCInteractable npc = other.GetComponent<NPCInteractable>();
-        if (npc != null && npc == currentNPC) currentNPC = null;
+        if (npc != null && npc == currentNPC)
+        {
+            // ✅ 额外确认：只有玩家真的离开 NPC 附近才清空
+            // 防止 StaffList 等其他物体消失时误触发 Exit 把 currentNPC 清掉
+            NPCInteractable[] nearbyNPCs = Physics.OverlapSphere(transform.position, 0.5f)
+                .Select(c => c.GetComponent<NPCInteractable>())
+                .Where(n => n != null && n == currentNPC)
+                .ToArray();
+
+            if (nearbyNPCs.Length == 0)
+            {
+                currentNPC = null;
+            }
+        }
 
         // 离开 Poo
         PooInteractable poo = other.GetComponent<PooInteractable>();
         if (poo != null && poo == currentPoo) currentPoo = null;
+    }
+
+    // 在 PlayerInteraction.cs 中添加
+    public void ClearCurrentEvidence(Evidence evidence)
+    {
+        // 安全检查：只有当要清空的证据确实是自己时，才清空（防止手快走到下一个证据前把新的清掉了）
+        if (currentEvidence == evidence)
+        {
+            currentEvidence = null;
+            Debug.Log($"[PlayerInteraction] {evidence.name} 已被安全清空引用。");
+        }
     }
 }
