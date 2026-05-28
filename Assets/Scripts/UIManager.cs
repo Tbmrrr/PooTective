@@ -12,15 +12,13 @@ public class UIManager : MonoBehaviour
     [Header("状态")]
     private bool isSettingsOpen = false;
 
+    // 💡 【新增】公开的只读属性，供其他脚本（如视角脚本）判断面板是否打开
+    public bool IsSettingsOpen => isSettingsOpen;
+
     private void Awake()
     {
         if (Instance == null) Instance = this;
         else Destroy(gameObject);
-    }
-
-    void Start()
-    {
-        if (settingsPanel != null) settingsPanel.SetActive(false);
     }
 
     void Update()
@@ -54,9 +52,9 @@ public class UIManager : MonoBehaviour
         settingsPanel.SetActive(false);
         Time.timeScale = 1f;
 
-        // 如果是第三人称视角，建议在这里重新锁定鼠标
-        // Cursor.lockState = CursorLockMode.Locked; 
-        // Cursor.visible = false;
+        // 💡 【建议取消注释】关闭设置时，把鼠标重新锁回游戏中央并隐藏
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
     }
 
     public void RestartScene()

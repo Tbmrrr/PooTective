@@ -50,8 +50,30 @@ public class LockedPitchThirdPersonController : MonoBehaviour
             return;
         }
 
+        // 🛑【核心新增】拦截设置面板
+        // 如果 UIManager 单例存在，且设置面板处于打开状态
+        if (UIManager.Instance != null && UIManager.Instance.IsSettingsOpen)
+        {
+            // 确保停止移动动画，防止角色卡在跑步姿态
+            if (anim != null) anim.SetBool("isWalking", false);
+
+            // 维持重力（防止万一在空中打开设置面板，关闭后坠落出 Bug，或者可以像下面 HandleMovement 一样处理）
+            ApplyMenuStaticGravity();
+
+            return; // 🛑 后面所有的 HandleCamera() 和 HandleMovement() 直接被跳过！
+        }
+
         HandleCamera();
         HandleMovement();
+    }
+
+    // 💡【新增辅助方法】用于在打开设置菜单时，给角色提供基础的重力维持，防止穿地
+    private void ApplyMenuStaticGravity()
+    {
+        if (!controller.isGrounded) verticalVelocity -= gravity * Time.deltaTime;
+        else verticalVelocity = -2f;
+        verticalVelocity = Mathf.Max(verticalVelocity, -25f);
+        controller.Move(new Vector3(0, verticalVelocity, 0) * Time.deltaTime);
     }
 
     void HandleCamera()
