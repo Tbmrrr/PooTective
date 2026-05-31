@@ -12,38 +12,20 @@ public class DoorInteractable : MonoBehaviour
     public bool isLocked = false;
     public string lockedHint = "门锁住了。";
     public float autoCloseDelay = 3f;
-
-    // 关门动画时长，设置为你的动画实际时长
     public float closeDoorAnimDuration = 1f;
 
     private string animStateName = "opendoor";
-    private MeshCollider doorMeshCollider;
+    private Collider doorMeshCollider;
     private Coroutine autoCloseCoroutine;
+    private bool isAnimating = false;
 
     private void Start()
     {
-        doorMeshCollider = GetComponentInChildren<MeshCollider>();
-
-        // 初始状态：门关着，恢复实体碰撞
+        doorMeshCollider = GetComponent<Collider>();
+        Debug.Log($"找到的 Collider 在: {(doorMeshCollider != null ? doorMeshCollider.gameObject.name : "null")}");
         if (doorMeshCollider != null) doorMeshCollider.isTrigger = false;
     }
 
-    // ✅ 玩家进入触发区域自动开门
-    private void OnTriggerEnter(Collider other)
-    {
-        if (!other.CompareTag("Player")) return;
-
-        if (isLocked)
-        {
-            if (DialogueManager.Instance != null)
-                DialogueManager.Instance.StartDialogue(new string[] { "侦探：" + lockedHint }, null);
-            return;
-        }
-
-        if (!isOpen) OpenDoor();
-    }
-
-    // ✅ 保留 OnInteract 供外部调用兼容
     public void OnInteract()
     {
         if (isLocked && !isOpen)
@@ -59,9 +41,11 @@ public class DoorInteractable : MonoBehaviour
 
     private void OpenDoor()
     {
-        isOpen = true;
+        if (isAnimating) return;
 
-        // ✅ 开门前就设为 Trigger，整个开门动画期间不会撞玩家
+        isOpen = true;
+        isAnimating = true;
+
         if (doorMeshCollider != null) doorMeshCollider.isTrigger = true;
 
         ExecuteAnimation(1f, 0f);
@@ -74,16 +58,17 @@ public class DoorInteractable : MonoBehaviour
 
     private void CloseDoor()
     {
-        isOpen = false;
+        if (isAnimating) return;
 
-        // ✅ 关门动画期间也保持 Trigger，动画结束后才恢复实体
+        isOpen = false;
+        isAnimating = true;
+
         if (doorMeshCollider != null) doorMeshCollider.isTrigger = true;
 
         ExecuteAnimation(-1f, 1f);
 
         if (autoCloseCoroutine != null) StopCoroutine(autoCloseCoroutine);
 
-        // ✅ 等关门动画播完再恢复碰撞体
         StartCoroutine(RestoreColliderAfterClose());
 
         Debug.Log("<color=yellow>门正在关闭</color>");
@@ -95,8 +80,9 @@ public class DoorInteractable : MonoBehaviour
         if (!isOpen && doorMeshCollider != null)
         {
             doorMeshCollider.isTrigger = false;
-            Debug.Log("<color=yellow>门碰撞体已恢复</color>");
         }
+        isAnimating = false;
+        Debug.Log("<color=yellow>门碰撞体已恢复</color>");
     }
 
     private void ExecuteAnimation(float speed, float startTime)
@@ -119,6 +105,10 @@ public class DoorInteractable : MonoBehaviour
     IEnumerator AutoCloseTimer()
     {
         yield return new WaitForSeconds(autoCloseDelay);
-        if (isOpen) CloseDoor();
+        if (isOpen)
+        {
+            isAnimating = false; // ✅ 开门动画时间结束，解锁后关门
+            CloseDoor();
+        }
     }
 }

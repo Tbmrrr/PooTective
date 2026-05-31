@@ -78,11 +78,13 @@ public class PlayerInteraction : MonoBehaviour
         }
 
         // 检测门
-        DoorInteractable door = other.GetComponent<DoorInteractable>();
+        DoorInteractable door = other.GetComponentInParent<DoorInteractable>();
         if (door != null)
         {
+            Debug.Log($"检测到门: {door.gameObject.name}");
             currentDoor = door;
             currentDoor.ShowPrompt(true);
+            door.OnInteract();
             return;
         }
 
