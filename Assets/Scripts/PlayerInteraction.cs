@@ -77,14 +77,11 @@ public class PlayerInteraction : MonoBehaviour
             return; // 优先检测证物，检测到了就返回
         }
 
-        // 检测门
         DoorInteractable door = other.GetComponentInParent<DoorInteractable>();
         if (door != null)
         {
-            Debug.Log($"检测到门: {door.gameObject.name}");
             currentDoor = door;
-            currentDoor.ShowPrompt(true);
-            door.OnInteract();
+            door.OnPlayerEnter(other); // ✅ 传入 other
             return;
         }
 
@@ -112,12 +109,13 @@ public class PlayerInteraction : MonoBehaviour
             currentEvidence = null;
         }
 
-        // 离开门
-        DoorInteractable door = other.GetComponent<DoorInteractable>();
+        // OnTriggerExit
+        DoorInteractable door = other.GetComponentInParent<DoorInteractable>();
         if (door != null && door == currentDoor)
         {
             currentDoor.ShowPrompt(false);
             currentDoor = null;
+            door.OnPlayerExit(other); // ✅ 传入 other
         }
 
         // 离开 NPC
