@@ -4247,11 +4247,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   doorAnimator: {fileID: 67965890}
   interactPrompt: {fileID: 0}
-  interactDistance: 2.5
   isOpen: 0
   isLocked: 0
   lockedHint: "\u95E8\u9501\u4F4F\u4E86\u3002"
   autoCloseDelay: 3
+  closeDoorAnimDuration: 1
 --- !u!65 &131153044
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -24780,9 +24780,11 @@ GameObject:
   - component: {fileID: 730292321}
   - component: {fileID: 730292320}
   - component: {fileID: 730292322}
+  - component: {fileID: 730292323}
+  - component: {fileID: 730292324}
   m_Layer: 6
   m_Name: present
-  m_TagString: Untagged
+  m_TagString: Choice2
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -24857,6 +24859,83 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 467f97138aa549642b343638d6cc73b8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &730292323
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 730292318}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Navigation:
+    m_Mode: 3
+    m_WrapAround: 0
+    m_SelectOnUp: {fileID: 0}
+    m_SelectOnDown: {fileID: 0}
+    m_SelectOnLeft: {fileID: 0}
+    m_SelectOnRight: {fileID: 0}
+  m_Transition: 1
+  m_Colors:
+    m_NormalColor: {r: 1, g: 1, b: 1, a: 1}
+    m_HighlightedColor: {r: 0.9607843, g: 0.9607843, b: 0.9607843, a: 1}
+    m_PressedColor: {r: 0.78431374, g: 0.78431374, b: 0.78431374, a: 1}
+    m_SelectedColor: {r: 0.9607843, g: 0.9607843, b: 0.9607843, a: 1}
+    m_DisabledColor: {r: 0.78431374, g: 0.78431374, b: 0.78431374, a: 0.5019608}
+    m_ColorMultiplier: 1
+    m_FadeDuration: 0.1
+  m_SpriteState:
+    m_HighlightedSprite: {fileID: 0}
+    m_PressedSprite: {fileID: 0}
+    m_SelectedSprite: {fileID: 0}
+    m_DisabledSprite: {fileID: 0}
+  m_AnimationTriggers:
+    m_NormalTrigger: Normal
+    m_HighlightedTrigger: Highlighted
+    m_PressedTrigger: Pressed
+    m_SelectedTrigger: Selected
+    m_DisabledTrigger: Disabled
+  m_Interactable: 1
+  m_TargetGraphic: {fileID: 730292320}
+  m_OnClick:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 2004902820}
+        m_TargetAssemblyTypeName: NPCInteractable, Assembly-CSharp
+        m_MethodName: OnClickChoice2
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+--- !u!65 &730292324
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 730292318}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1, y: 1, z: 1}
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1001 &731726625
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -34900,11 +34979,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   doorAnimator: {fileID: 1055126078}
   interactPrompt: {fileID: 0}
-  interactDistance: 2.5
   isOpen: 0
   isLocked: 0
   lockedHint: "\u95E8\u9501\u4F4F\u4E86\u3002"
   autoCloseDelay: 3
+  closeDoorAnimDuration: 1
 --- !u!65 &1055126080
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -42466,6 +42545,8 @@ MonoBehaviour:
   pressEPrompt: {fileID: 1984676480}
   optionsMenu: {fileID: 751909670}
   npcNameUI: {fileID: 841341332}
+  choice1Rect: {fileID: 0}
+  choice2Rect: {fileID: 0}
   evidenceResponses:
   - evidenceID: 
     responseDialogue: []
@@ -43993,9 +44074,12 @@ GameObject:
   - component: {fileID: 1357195340}
   - component: {fileID: 1357195339}
   - component: {fileID: 1357195341}
+  - component: {fileID: 1357195342}
+  - component: {fileID: 1357195343}
+  - component: {fileID: 1357195344}
   m_Layer: 6
   m_Name: question
-  m_TagString: Untagged
+  m_TagString: Choice1
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -44068,6 +44152,95 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 467f97138aa549642b343638d6cc73b8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &1357195342
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1357195337}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Navigation:
+    m_Mode: 3
+    m_WrapAround: 0
+    m_SelectOnUp: {fileID: 0}
+    m_SelectOnDown: {fileID: 0}
+    m_SelectOnLeft: {fileID: 0}
+    m_SelectOnRight: {fileID: 0}
+  m_Transition: 1
+  m_Colors:
+    m_NormalColor: {r: 1, g: 1, b: 1, a: 1}
+    m_HighlightedColor: {r: 0.9607843, g: 0.9607843, b: 0.9607843, a: 1}
+    m_PressedColor: {r: 0.78431374, g: 0.78431374, b: 0.78431374, a: 1}
+    m_SelectedColor: {r: 0.9607843, g: 0.9607843, b: 0.9607843, a: 1}
+    m_DisabledColor: {r: 0.78431374, g: 0.78431374, b: 0.78431374, a: 0.5019608}
+    m_ColorMultiplier: 1
+    m_FadeDuration: 0.1
+  m_SpriteState:
+    m_HighlightedSprite: {fileID: 0}
+    m_PressedSprite: {fileID: 0}
+    m_SelectedSprite: {fileID: 0}
+    m_DisabledSprite: {fileID: 0}
+  m_AnimationTriggers:
+    m_NormalTrigger: Normal
+    m_HighlightedTrigger: Highlighted
+    m_PressedTrigger: Pressed
+    m_SelectedTrigger: Selected
+    m_DisabledTrigger: Disabled
+  m_Interactable: 1
+  m_TargetGraphic: {fileID: 1357195339}
+  m_OnClick:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 2004902820}
+        m_TargetAssemblyTypeName: NPCInteractable, Assembly-CSharp
+        m_MethodName: OnClickChoice1
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+--- !u!65 &1357195343
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1357195337}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1, y: 1, z: 1}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &1357195344
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1357195337}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f0f4bee245f834a4aa71305181825e28, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
 --- !u!4 &1358160109 stripped
@@ -47996,11 +48169,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   doorAnimator: {fileID: 363028655}
   interactPrompt: {fileID: 0}
-  interactDistance: 2.5
   isOpen: 0
   isLocked: 0
   lockedHint: "\u95E8\u9501\u4F4F\u4E86\u3002"
   autoCloseDelay: 3
+  closeDoorAnimDuration: 1
 --- !u!65 &1503616919
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -49697,6 +49870,7 @@ GameObject:
   - component: {fileID: 1543681672}
   - component: {fileID: 1543681675}
   - component: {fileID: 1543681676}
+  - component: {fileID: 1543681677}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -49806,6 +49980,22 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   postProcessShader: {fileID: 0}
+--- !u!114 &1543681677
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1543681671}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c49b4cc203aa6414fae5c798d1d0e7d6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_EventMask:
+    serializedVersion: 2
+    m_Bits: 64
+  m_MaxRayIntersections: 10
 --- !u!4 &1543695740 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: f1d571949c87a1f4f9c0a79b68a79508, type: 3}
@@ -50726,7 +50916,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1572006789
 RectTransform:
   m_ObjectHideFlags: 0
@@ -62657,11 +62847,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   doorAnimator: {fileID: 1879840397}
   interactPrompt: {fileID: 0}
-  interactDistance: 2.5
   isOpen: 0
   isLocked: 0
   lockedHint: "\u95E8\u9501\u4F4F\u4E86\u3002"
   autoCloseDelay: 3
+  closeDoorAnimDuration: 1
 --- !u!65 &1879840399
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -62861,11 +63051,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   doorAnimator: {fileID: 490143262}
   interactPrompt: {fileID: 0}
-  interactDistance: 2.5
   isOpen: 0
   isLocked: 0
   lockedHint: "\u95E8\u9501\u4F4F\u4E86\u3002"
   autoCloseDelay: 3
+  closeDoorAnimDuration: 1
 --- !u!4 &1884530123 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: a56dfddf38e2c41148bf0e316d9baa09, type: 3}
@@ -64429,7 +64619,6 @@ GameObject:
   - component: {fileID: 1960489180}
   - component: {fileID: 1960489183}
   - component: {fileID: 1960489182}
-  - component: {fileID: 1960489181}
   m_Layer: 6
   m_Name: Canvas_name
   m_TagString: Untagged
@@ -64459,23 +64648,6 @@ RectTransform:
   m_AnchoredPosition: {x: -0.015, y: 0.262}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &1960489181
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1960489179}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dc42784cf147c0c48a680349fa168899, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_IgnoreReversedGraphics: 1
-  m_BlockingObjects: 0
-  m_BlockingMask:
-    serializedVersion: 2
-    m_Bits: 4294967295
 --- !u!114 &1960489182
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -66009,6 +66181,8 @@ MonoBehaviour:
   pressEPrompt: {fileID: 1077179935}
   optionsMenu: {fileID: 1572006788}
   npcNameUI: {fileID: 1617621008}
+  choice1Rect: {fileID: 1357195338}
+  choice2Rect: {fileID: 730292319}
   evidenceResponses:
   - evidenceID: newspaper
     responseDialogue:
@@ -67129,11 +67303,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   doorAnimator: {fileID: 1151790760}
   interactPrompt: {fileID: 0}
-  interactDistance: 2.5
   isOpen: 0
   isLocked: 0
   lockedHint: "\u95E8\u9501\u4F4F\u4E86\u3002"
   autoCloseDelay: 3
+  closeDoorAnimDuration: 1
 --- !u!65 &2039276017
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -69798,8 +69972,8 @@ SphereCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Radius: 0.45437583
-  m_Center: {x: 0, y: 0, z: 0.045624163}
+  m_Radius: 0.38954362
+  m_Center: {x: 0.10618496, y: 0, z: 0.004271412}
 --- !u!1001 &2111954261
 PrefabInstance:
   m_ObjectHideFlags: 0

@@ -47,6 +47,10 @@ public class NPCInteractable : MonoBehaviour
     [Tooltip("显示 NPC 名字的 UI 物体")]
     public GameObject npcNameUI;
 
+    [Header("选项按钮 RectTransform")]
+    public RectTransform choice1Rect;
+    public RectTransform choice2Rect;
+
     [Header("证物系统配置 - 简单模式")]
     [Tooltip("简单质询响应（无条件）")]
     public List<EvidenceMapping> evidenceResponses;
@@ -67,6 +71,8 @@ public class NPCInteractable : MonoBehaviour
     private string pendingCharID;
     private string pendingCharDesc;
 
+    private bool isPlayerInRange = false;
+
     // ✅ 全局标志：玩家正在选择对话选项（按下E后、选1/2前）
     public static bool isChoosingOption = false;
 
@@ -86,8 +92,24 @@ public class NPCInteractable : MonoBehaviour
     {
         if (isWaitingForChoice)
         {
+            // 键盘
             if (Input.GetKeyDown(KeyCode.Alpha1)) OnChoiceSelected(1);
             else if (Input.GetKeyDown(KeyCode.Alpha2)) OnChoiceSelected(2);
+
+            // 鼠标点击（使用 RectTransform 检测，不依赖 Collider）
+            if (Input.GetMouseButtonDown(0))
+            {
+                if (choice1Rect != null && RectTransformUtility.RectangleContainsScreenPoint(
+                    choice1Rect, Input.mousePosition, Camera.main))
+                {
+                    OnChoiceSelected(1);
+                }
+                else if (choice2Rect != null && RectTransformUtility.RectangleContainsScreenPoint(
+                    choice2Rect, Input.mousePosition, Camera.main))
+                {
+                    OnChoiceSelected(2);
+                }
+            }
         }
     }
 
@@ -95,6 +117,7 @@ public class NPCInteractable : MonoBehaviour
     {
         if (other.CompareTag("Player") && !DialogueManager.Instance.isDialogueActive)
         {
+            isPlayerInRange = true;
             if (!isWaitingForChoice && !isDialogueJustFinished)
             {
                 if (pressEPrompt != null) pressEPrompt.SetActive(true);
@@ -107,9 +130,11 @@ public class NPCInteractable : MonoBehaviour
     {
         if (other.CompareTag("Player"))
         {
+            isPlayerInRange = false;
             ResetInteraction();
         }
     }
+
 
     public void OnInteract()
     {
@@ -127,6 +152,10 @@ public class NPCInteractable : MonoBehaviour
         SetPlayerMovement(false);
         isWaitingForChoice = true;
     }
+
+    // ✅ 供 UI Button OnClick 调用
+    public void OnClickChoice1() { if (isWaitingForChoice) OnChoiceSelected(1); }
+    public void OnClickChoice2() { if (isWaitingForChoice) OnChoiceSelected(2); }
 
     private void OnChoiceSelected(int choice)
     {
@@ -243,6 +272,13 @@ public class NPCInteractable : MonoBehaviour
     private void ReleaseDialogueLock()
     {
         isDialogueJustFinished = false;
+
+        // 如果玩家还在范围内，重新显示按E提示
+        if (isPlayerInRange)
+        {
+            if (pressEPrompt != null) pressEPrompt.SetActive(true);
+            if (npcNameUI != null) npcNameUI.SetActive(true);
+        }
     }
 
     private void ResetInteraction()
@@ -261,5 +297,23 @@ public class NPCInteractable : MonoBehaviour
     private void SetPlayerMovement(bool canMove)
     {
         Debug.Log(canMove ? "解锁移动" : "锁定移动并开启 1/2 选项");
+    }
+
+    // ✅ 供背包/证物界面关闭时调用，恢复按E提示
+    public void OnPresentModeCancelled()
+    {
+        Debug.Log($"OnPresentModeCancelled 被调用 | isPlayerInRange={isPlayerInRange}");
+        // ...其余不变
+        isWaitingForChoice = false;
+        isChoosingOption = false;
+        isDialogueJustFinished = false;
+
+        SetPlayerMovement(true);
+
+        if (isPlayerInRange)
+        {
+            if (pressEPrompt != null) pressEPrompt.SetActive(true);
+            if (npcNameUI != null) npcNameUI.SetActive(true);
+        }
     }
 }

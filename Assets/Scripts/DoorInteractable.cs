@@ -8,49 +8,42 @@ public class DoorInteractable : MonoBehaviour
     public GameObject interactPrompt;
 
     [Header("设置")]
-    public float interactDistance = 2.5f;
     public bool isOpen = false;
     public bool isLocked = false;
     public string lockedHint = "门锁住了。";
-    public float autoCloseDelay = 3f; // 自动关闭延迟
+    public float autoCloseDelay = 3f;
+
+    // 关门动画时长，设置为你的动画实际时长
+    public float closeDoorAnimDuration = 1f;
 
     private string animStateName = "opendoor";
     private MeshCollider doorMeshCollider;
-    private Transform playerTransform;
     private Coroutine autoCloseCoroutine;
 
     private void Start()
     {
         doorMeshCollider = GetComponentInChildren<MeshCollider>();
-        GameObject p = GameObject.FindGameObjectWithTag("Player");
-        if (p != null) playerTransform = p.transform;
+
+        // 初始状态：门关着，恢复实体碰撞
+        if (doorMeshCollider != null) doorMeshCollider.isTrigger = false;
     }
 
-    private void Update()
+    // ✅ 玩家进入触发区域自动开门
+    private void OnTriggerEnter(Collider other)
     {
-        if (playerTransform == null)
+        if (!other.CompareTag("Player")) return;
+
+        if (isLocked)
         {
-            if (Camera.main != null) playerTransform = Camera.main.transform;
-            else return;
+            if (DialogueManager.Instance != null)
+                DialogueManager.Instance.StartDialogue(new string[] { "侦探：" + lockedHint }, null);
+            return;
         }
 
-        float dist = Vector3.Distance(transform.position, playerTransform.position);
-
-        // 只有当门没开时，显示按 E 提示
-        bool shouldShow = dist <= interactDistance && !isOpen;
-        ShowPrompt(shouldShow);
-
-        // 距离感应交互（防止射线检测失效时的保底）
-        if (shouldShow && Input.GetKeyDown(KeyCode.E))
-        {
-            if (Time.timeScale > 0 && (NoteManager.Instance == null || !NoteManager.Instance.notePanel.activeSelf))
-            {
-                OnInteract();
-            }
-        }
+        if (!isOpen) OpenDoor();
     }
 
-    // ✅ 核心接口：供外部脚本（如 PlayerInteraction）调用
+    // ✅ 保留 OnInteract 供外部调用兼容
     public void OnInteract()
     {
         if (isLocked && !isOpen)
@@ -67,29 +60,43 @@ public class DoorInteractable : MonoBehaviour
     private void OpenDoor()
     {
         isOpen = true;
-        ExecuteAnimation(1f, 0f); // 速度1，从0开始播
 
-        // 开门时，将碰撞体设为 Trigger，方便玩家穿过
+        // ✅ 开门前就设为 Trigger，整个开门动画期间不会撞玩家
         if (doorMeshCollider != null) doorMeshCollider.isTrigger = true;
 
-        // 开启自动关闭计时器
+        ExecuteAnimation(1f, 0f);
+
         if (autoCloseCoroutine != null) StopCoroutine(autoCloseCoroutine);
         autoCloseCoroutine = StartCoroutine(AutoCloseTimer());
 
-        Debug.Log("<color=green>门已开启，3秒后自动关闭</color>");
+        Debug.Log("<color=green>门已开启，自动关闭计时开始</color>");
     }
 
     private void CloseDoor()
     {
         isOpen = false;
-        ExecuteAnimation(-1f, 1f); // 速度-1，从末尾倒着播
 
-        // 关门瞬间恢复物理实体，防止玩家穿墙
-        if (doorMeshCollider != null) doorMeshCollider.isTrigger = false;
+        // ✅ 关门动画期间也保持 Trigger，动画结束后才恢复实体
+        if (doorMeshCollider != null) doorMeshCollider.isTrigger = true;
+
+        ExecuteAnimation(-1f, 1f);
 
         if (autoCloseCoroutine != null) StopCoroutine(autoCloseCoroutine);
 
-        Debug.Log("<color=yellow>门已关闭</color>");
+        // ✅ 等关门动画播完再恢复碰撞体
+        StartCoroutine(RestoreColliderAfterClose());
+
+        Debug.Log("<color=yellow>门正在关闭</color>");
+    }
+
+    private IEnumerator RestoreColliderAfterClose()
+    {
+        yield return new WaitForSeconds(closeDoorAnimDuration);
+        if (!isOpen && doorMeshCollider != null)
+        {
+            doorMeshCollider.isTrigger = false;
+            Debug.Log("<color=yellow>门碰撞体已恢复</color>");
+        }
     }
 
     private void ExecuteAnimation(float speed, float startTime)
@@ -101,7 +108,6 @@ public class DoorInteractable : MonoBehaviour
         }
     }
 
-    // ✅ 补回失踪的 ShowPrompt 接口
     public void ShowPrompt(bool show)
     {
         if (interactPrompt != null && interactPrompt.activeSelf != show)
@@ -113,9 +119,6 @@ public class DoorInteractable : MonoBehaviour
     IEnumerator AutoCloseTimer()
     {
         yield return new WaitForSeconds(autoCloseDelay);
-        if (isOpen)
-        {
-            CloseDoor();
-        }
+        if (isOpen) CloseDoor();
     }
 }

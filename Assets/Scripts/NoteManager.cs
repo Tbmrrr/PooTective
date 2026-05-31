@@ -340,6 +340,17 @@ public class NoteManager : MonoBehaviour
         }
         else
         {
+            // ✅ 新增：如果是从提交证物模式退出（没有提交），通知 NPC 恢复按E提示
+            NPCInteractable npcToNotify = activeNPC;
+            if (npcToNotify != null)
+            {
+                Debug.Log($"准备调用 OnPresentModeCancelled，npcToNotify={npcToNotify.name}");
+                npcToNotify.OnPresentModeCancelled();
+            }
+            else
+            {
+                Debug.Log("npcToNotify 是 null，没有调用 OnPresentModeCancelled");
+            }
             activeNPC = null;
             selectedEvidenceComponent = null;
             if (presentSubmitBtn != null) presentSubmitBtn.gameObject.SetActive(false);
