@@ -30,6 +30,10 @@ public class RebuildModeManager : MonoBehaviour
     public Button nodeButton1;
     public Button nodeButton2;
 
+    [Header("额外功能按钮")]
+    public Button exitRebuildButton; // 退出重建模式
+    public Button openNoteButton;    // 打开笔记本
+
     [Header("状态属性")]
     public bool isRebuildModeActive = false;
     public bool hasUnlockedRebuild = false;
@@ -53,8 +57,25 @@ public class RebuildModeManager : MonoBehaviour
         if (nodeButton1 != null) nodeButton1.onClick.AddListener(OnNode1Clicked);
         if (nodeButton2 != null) nodeButton2.onClick.AddListener(OnNode2Clicked);
 
+        if (exitRebuildButton != null)
+            exitRebuildButton.onClick.AddListener(OnExitRebuildClicked);
+
+        if (openNoteButton != null)
+            openNoteButton.onClick.AddListener(OnOpenNoteClicked);
+
         // 初始化节点2的视觉状态（锁定/解锁）
         UpdateNode2Visuals(hasUnlockedNode2);
+    }
+
+    private void Update()
+    {
+        if (!isRebuildModeActive)
+            return;
+
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            ExitRebuildModeByButton();
+        }
     }
 
     #region 时间节点控制逻辑 (带旋转的传送)
@@ -254,6 +275,38 @@ public class RebuildModeManager : MonoBehaviour
                 new Color32(255, 255, 255, currentAlpha) :
                 new Color32(90, 87, 87, currentAlpha);
         }
+    }
+
+    /// <summary>
+    /// 退出重建模式
+    /// </summary>
+    public void OnExitRebuildClicked()
+    {
+        ExitRebuildModeByButton();
+    }
+
+    private void ExitRebuildModeByButton()
+    {
+        if (!isRebuildModeActive)
+            return;
+
+        isRebuildModeActive = false;
+
+        ExitRebuildMode();
+    }
+
+    /// <summary>
+    /// 打开笔记本
+    /// </summary>
+    public void OnOpenNoteClicked()
+    {
+        if (NoteManager.Instance == null)
+            return;
+
+        // 调用 NoteManager 原本的 N 键逻辑
+        NoteManager.Instance.SendMessage(
+            "ToggleNote",
+            SendMessageOptions.DontRequireReceiver);
     }
 
     #endregion
