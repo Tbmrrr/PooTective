@@ -27,6 +27,7 @@ public class NoteManager : MonoBehaviour
     [Header("分类按钮")]
     public Button evidenceTabBtn;
     public Button characterTabBtn;
+    public Button closeNoteBtn; // 👈 【新增】关闭笔记本按钮
 
     [Header("右侧详情显示")]
     public GameObject rightDetailGroup;
@@ -98,6 +99,10 @@ public class NoteManager : MonoBehaviour
 
         // 绑定功能：取出按钮
         if (takeOutBtn != null) takeOutBtn.onClick.AddListener(OnTakeOutClicked);
+
+        // 👈 【新增】绑定关闭功能
+        // 因为按钮只有在笔记本打开时才能点击，此时调用 ToggleNote() 会自动走 else 分支，完美执行所有关闭逻辑。
+        if (closeNoteBtn != null) closeNoteBtn.onClick.AddListener(ToggleNote);
     }
 
     void Update()
@@ -396,16 +401,37 @@ public class NoteManager : MonoBehaviour
 
     void RefreshList()
     {
+        // 1. 探路 Log
+        Debug.Log($"<color=cyan>--- RefreshList 开始执行！当前页面是: {currentTab} ---</color>");
+
+        // 🚨 【安全检查 1】防止 listParent 为空导致后续代码全部崩溃
+        if (listParent == null)
+        {
+            Debug.LogError("<color=red>【❗ 致命错误】你的 NoteManager 脚本上 [List Parent] 槽位是空的！请把 UI 里的 Content 物体拖进去！</color>");
+            return; // 拦截，不让程序崩溃
+        }
+
         foreach (Transform child in listParent) Destroy(child.gameObject);
 
         if (currentTab == NoteTab.Character && !isStaffFilesUnlocked)
         {
-            Debug.Log("员工档案尚未解锁，列表不显示。");
+            Debug.Log("<color=yellow>拦截：员工档案尚未解锁，列表不显示。</color>");
             return;
         }
 
         List<EvidenceData> targetData = (currentTab == NoteTab.Evidence) ? collectedEvidence : characterFiles;
 
+        // 2. 数量 Log（确保放在循环外面）
+        Debug.Log($"<color=cyan>--- 当前准备生成的列表数量为: {targetData.Count} ---</color>");
+
+        // 🚨 【安全检查 2】如果数据是 0，直接打道回府
+        if (targetData.Count == 0)
+        {
+            Debug.LogWarning("<color=yellow>【⚠️ 提示】当前背包里的数据量为 0！如果你还没在游戏里捡起过任何证物，列表自然是空的，请先去捡个证物再看。</color>");
+            return;
+        }
+
+        // 3. 开始渲染图标
         foreach (var data in targetData)
         {
             GameObject item = Instantiate(listItemPrefab, listParent);
@@ -416,17 +442,42 @@ public class NoteManager : MonoBehaviour
             {
                 btn.onClick.RemoveAllListeners();
                 EvidenceData capturedData = data;
-
                 btn.onClick.AddListener(() => {
                     ShowDetail(capturedData);
                 });
             }
 
-            Text itemText = item.GetComponentInChildren<Text>();
-            if (itemText != null) itemText.text = data.name;
-
+            // 寻找图片组件
+            Image itemImage = null;
             Transform iconTrans = item.transform.Find("Icon");
-            if (iconTrans != null) iconTrans.GetComponent<Image>().sprite = data.icon;
+            if (iconTrans != null)
+            {
+                itemImage = iconTrans.GetComponent<Image>();
+            }
+            else
+            {
+                itemImage = item.GetComponent<Image>();
+            }
+
+            // 图片赋值
+            if (itemImage != null)
+            {
+                if (data.icon != null)
+                {
+                    itemImage.sprite = data.icon;
+                    itemImage.preserveAspect = true;
+                    // 💡 【核心新增】加上这句绿字，亲眼见证循环跑没跑！
+                    Debug.Log($"<color=green>【🎉 证据确凿】循环成功执行！已为 [{data.name}] 实例化了 UI，并把图片塞进去了！</color>");
+                }
+                else
+                {
+                    Debug.LogError($"<color=red>【❌ 错误】证物 [{data.name}] 存在，但它的 Icon 图片在预制体/数据里是空的！</color>");
+                }
+            }
+            else
+            {
+                Debug.LogError("<color=red>【❌ 错误】实例化的 Prefab 上既没有叫 'Icon' 的子物体，自身也没有 Image 组件！</color>");
+            }
         }
     }
 
