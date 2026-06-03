@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.UI; // 💡 引入 UI 命名空间以使用 Image
 using System.Collections;
-using TMPro;
 
 public class EvidenceReceiver : MonoBehaviour
 {
@@ -19,10 +19,11 @@ public class EvidenceReceiver : MonoBehaviour
     public bool disableObjectOnSuccess = false;
 
     [Header("组件关联")]
-    public TextMeshPro questionText;
+    // 🔄 已替换：将 TextMeshPro 替换为 Image 组件
+    public Image questionImage;
     public GameObject objectToEnableOnSuccess;
 
-    // ✅ 新增：Collider 引用
+    // ✅ Collider 引用
     private Collider myCollider;
 
     [Header("渐变设置")]
@@ -41,12 +42,13 @@ public class EvidenceReceiver : MonoBehaviour
 
     private void Start()
     {
-        if (questionText != null)
+        // 🔄 已替换：初始化时将图片透明度设为 0 并隐藏
+        if (questionImage != null)
         {
-            Color c = questionText.color;
+            Color c = questionImage.color;
             c.a = 0;
-            questionText.color = c;
-            questionText.gameObject.SetActive(false);
+            questionImage.color = c;
+            questionImage.gameObject.SetActive(false);
         }
 
         // ✅ 初始检查：如果没激活，直接关掉碰撞体
@@ -72,9 +74,10 @@ public class EvidenceReceiver : MonoBehaviour
 
         Debug.Log($"<color=cyan>[任务系统]</color> {gameObject.name} 已激活并开启射线检测。");
 
-        if (questionText != null)
+        // 🔄 已替换：显示并渐显图片
+        if (questionImage != null)
         {
-            questionText.gameObject.SetActive(true);
+            questionImage.gameObject.SetActive(true);
             StartFade(1);
         }
     }
@@ -91,10 +94,11 @@ public class EvidenceReceiver : MonoBehaviour
             // ✅ 匹配成功后，立即关闭物理检测，防止二次触发
             UpdatePhysicsState(false);
 
-            if (questionText != null)
+            // 🔄 已替换：解谜成功后，渐隐并关闭图片
+            if (questionImage != null)
             {
                 StartFade(0, () => {
-                    questionText.gameObject.SetActive(false);
+                    questionImage.gameObject.SetActive(false);
                     if (disableObjectOnSuccess) gameObject.SetActive(false);
                 });
             }
@@ -116,7 +120,7 @@ public class EvidenceReceiver : MonoBehaviour
         return false;
     }
 
-    // ✅ 新增辅助方法：控制碰撞体状态
+    // ✅ 控制碰撞体状态
     private void UpdatePhysicsState(bool canDetect)
     {
         if (myCollider != null)
@@ -134,25 +138,26 @@ public class EvidenceReceiver : MonoBehaviour
         }
     }
 
-    // 渐变逻辑保持不变...
+    // 渐变逻辑调配
     private void StartFade(float targetAlpha, System.Action onComplete = null)
     {
         if (fadeCoroutine != null) StopCoroutine(fadeCoroutine);
         fadeCoroutine = StartCoroutine(FadeRoutine(targetAlpha, onComplete));
     }
 
+    // 🔄 已替换：对 Image 的颜色 Alpha 通道进行 Lerp 渐变
     IEnumerator FadeRoutine(float targetAlpha, System.Action onComplete)
     {
-        float startAlpha = questionText.color.a;
+        float startAlpha = questionImage.color.a;
         float timer = 0;
         while (timer < fadeDuration)
         {
             timer += Time.deltaTime;
-            if (questionText != null)
+            if (questionImage != null)
             {
-                Color c = questionText.color;
+                Color c = questionImage.color;
                 c.a = Mathf.Lerp(startAlpha, targetAlpha, timer / fadeDuration);
-                questionText.color = c;
+                questionImage.color = c;
             }
             yield return null;
         }

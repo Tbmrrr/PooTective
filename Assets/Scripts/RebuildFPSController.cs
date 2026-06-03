@@ -50,6 +50,7 @@ public class RebuildFPSController : MonoBehaviour
         bool isNoteOpen = NoteManager.Instance != null && NoteManager.Instance.notePanel.activeSelf;
         bool isDialogueActive = DialogueManager.Instance != null && DialogueManager.Instance.isDialogueActive;
 
+        // 如果处于对话或看笔记状态，解锁鼠标并停止视角操作
         if (isDialogueActive || isNoteOpen)
         {
             isDialogueLock = true;
@@ -77,27 +78,19 @@ public class RebuildFPSController : MonoBehaviour
     {
         if (isDialogueLock) return;
 
-        // 只有按下右键才允许旋转
-        if (Input.GetMouseButton(1))
-        {
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
+        // ✅ 直接锁定鼠标并隐藏，不再需要判断 Input.GetMouseButton(1)
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
 
-            // 累加输入
-            yaw += Input.GetAxis("Mouse X") * mouseSensitivity;
-            pitch -= Input.GetAxis("Mouse Y") * mouseSensitivity;
+        // 累加鼠标输入
+        yaw += Input.GetAxis("Mouse X") * mouseSensitivity;
+        pitch -= Input.GetAxis("Mouse Y") * mouseSensitivity;
 
-            // 限制纵向角度
-            pitch = Mathf.Clamp(pitch, -pitchLimit, pitchLimit);
+        // 限制纵向角度，防止“翻脖子”
+        pitch = Mathf.Clamp(pitch, -pitchLimit, pitchLimit);
 
-            // ✅ 单物体结构的核心：一次性应用欧拉角
-            transform.localRotation = Quaternion.Euler(pitch, yaw, 0);
-        }
-        else
-        {
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
-        }
+        // 单物体结构的核心：一次性应用欧拉角
+        transform.localRotation = Quaternion.Euler(pitch, yaw, 0);
     }
 
     void HandleMovement()
@@ -110,7 +103,6 @@ public class RebuildFPSController : MonoBehaviour
 
         if (inputDir.magnitude >= 0.1f)
         {
-            // ✅ 修正移动逻辑：
             // 无论头（pitch）抬多高，移动只参考水平面（yaw）的方向
             Vector3 moveDir = Quaternion.Euler(0, yaw, 0) * inputDir;
             controller.Move(moveDir * moveSpeed * Time.deltaTime);
@@ -129,7 +121,6 @@ public class RebuildFPSController : MonoBehaviour
         // 调试用黄线
         Debug.DrawRay(ray.origin, ray.direction * interactDistance, Color.yellow);
 
-        // 如果你之前设置了 LayerMask 没反应，可以先去掉 interactableLayer 参数测试
         if (Physics.Raycast(ray, out hit, interactDistance, interactableLayer))
         {
             GameObject hitObj = hit.collider.gameObject;
