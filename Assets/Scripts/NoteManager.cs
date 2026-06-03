@@ -35,6 +35,12 @@ public class NoteManager : MonoBehaviour
     public Text detailName;
     public TMP_Text detailDesc;
 
+    [Header("角色详情显示")]
+    public GameObject characterRightDetailGroup;
+    public Image characterDetailImage;
+    public Image characterNameImage;
+    public TMP_Text characterDetailDesc;
+
     [Header("搜索功能提示")]
     [Tooltip("当前选中证物支持搜索时显示的按键提示图片（按C进入搜索）")]
     public GameObject searchHintObject;  // 在 Inspector 拖入提示图片的 GameObject
@@ -76,6 +82,7 @@ public class NoteManager : MonoBehaviour
         public string name;
         public Sprite icon;
         public Sprite fullImage;
+        public Sprite nameImage;
         [TextArea(3, 10)]
         public string desc;
     }
@@ -287,7 +294,11 @@ public class NoteManager : MonoBehaviour
             }
         }
 
-        if (rightDetailGroup != null) rightDetailGroup.SetActive(false);
+        if (rightDetailGroup != null)
+            rightDetailGroup.SetActive(false);
+
+        if (characterRightDetailGroup != null)
+            characterRightDetailGroup.SetActive(false);
         if (searchHintObject != null) searchHintObject.SetActive(false);
 
         selectedEvidenceComponent = null;
@@ -486,23 +497,62 @@ public class NoteManager : MonoBehaviour
         if (string.IsNullOrEmpty(data.evidenceID)) return;
 
         selectedData = data;
-        if (rightDetailGroup != null) rightDetailGroup.SetActive(true);
 
-        if (detailImage != null) detailImage.sprite = data.fullImage;
-        if (detailName != null) detailName.text = data.name;
+        // =======================
+        // 证物页
+        // =======================
+        if (currentTab == NoteTab.Evidence)
+        {
+            if (rightDetailGroup != null)
+                rightDetailGroup.SetActive(true);
+
+            if (characterRightDetailGroup != null)
+                characterRightDetailGroup.SetActive(false);
+
+            if (detailImage != null)
+                detailImage.sprite = data.fullImage;
+
+            if (detailName != null)
+                detailName.text = data.name;
+        }
+
+        // =======================
+        // 角色页
+        // =======================
+        else
+        {
+            if (rightDetailGroup != null)
+                rightDetailGroup.SetActive(false);
+
+            if (characterRightDetailGroup != null)
+                characterRightDetailGroup.SetActive(true);
+
+            if (characterDetailImage != null)
+                characterDetailImage.sprite = data.fullImage;
+
+            if (characterNameImage != null)
+                characterNameImage.sprite = data.nameImage;
+        }
 
         // --- 修改开始 ---
 
         // 1. 先检查是否有待更新的标记（用于显示“【线索更新】”红字）
+        TMP_Text targetDesc =
+    currentTab == NoteTab.Evidence
+    ? detailDesc
+    : characterDetailDesc;
+
         if (pendingUpdateIDs.Contains(data.evidenceID))
         {
-            if (detailDesc != null) detailDesc.text = "<color=#FF4500>【线索更新】</color>\n" + data.desc;
-            pendingUpdateIDs.Remove(data.evidenceID); // 玩家看了，移除红字标记
+            if (targetDesc != null)
+                targetDesc.text = "<color=#FF4500>【线索更新】</color>\n" + data.desc;
+
+            pendingUpdateIDs.Remove(data.evidenceID);
         }
         else
         {
-            // 2. 直接使用 data.desc (这是在 UpdateEvidenceInfo 中被更新过的值)
-            if (detailDesc != null) detailDesc.text = data.desc;
+            if (targetDesc != null)
+                targetDesc.text = data.desc;
         }
 
         // 3. 搜索功能依然需要组件支持，所以保留组件寻找，但仅用于搜索逻辑
