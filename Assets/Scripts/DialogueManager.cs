@@ -63,10 +63,19 @@ public class DialogueManager : MonoBehaviour
 
     void Update()
     {
-        if (isDialogueActive && Input.GetKeyDown(KeyCode.E))
+        // 💡 修改：使用 || (或运算符) 同时监听 E 键和 鼠标左键 (KeyCode.Mouse0)
+        if (isDialogueActive && (Input.GetKeyDown(KeyCode.E) || Input.GetKeyDown(KeyCode.Mouse0)))
         {
-            if (isTyping) cancelTyping = true;
-            else DisplayNextSentence();
+            if (isTyping)
+            {
+                // 如果正在打字，点击后立即停止打字，显示完整文本
+                cancelTyping = true;
+            }
+            else
+            {
+                // 如果字已经打完了，点击后进入下一句
+                DisplayNextSentence();
+            }
         }
     }
 
