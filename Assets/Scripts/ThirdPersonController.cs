@@ -28,6 +28,8 @@ public class LockedPitchThirdPersonController : MonoBehaviour
     private float verticalHeight;
     private float verticalVelocity;
     private float currentDistance;
+    private bool lastCameraLockState;
+    private bool lastSettingsLockState;
 
     void Start()
     {
@@ -54,6 +56,12 @@ public class LockedPitchThirdPersonController : MonoBehaviour
         // 如果 UIManager 单例存在，且设置面板处于打开状态
         if (UIManager.Instance != null && UIManager.Instance.IsSettingsOpen)
         {
+            if (!lastSettingsLockState)
+            {
+                Debug.Log("[CameraLock] Settings panel open. Camera updates paused.");
+                lastSettingsLockState = true;
+            }
+
             // 确保停止移动动画，防止角色卡在跑步姿态
             if (anim != null) anim.SetBool("isWalking", false);
 
@@ -61,6 +69,12 @@ public class LockedPitchThirdPersonController : MonoBehaviour
             ApplyMenuStaticGravity();
 
             return; // 🛑 后面所有的 HandleCamera() 和 HandleMovement() 直接被跳过！
+        }
+
+        if (lastSettingsLockState)
+        {
+            Debug.Log("[CameraLock] Settings panel closed. Camera updates resumed.");
+            lastSettingsLockState = false;
         }
 
         HandleCamera();
@@ -86,9 +100,21 @@ public class LockedPitchThirdPersonController : MonoBehaviour
 
         if (isDialogueActive || isNoteOpen || isChoosingOption)
         {
+            if (!lastCameraLockState)
+            {
+                Debug.Log($"[CameraLock] Dialogue:{isDialogueActive} Note:{isNoteOpen} Choose:{isChoosingOption}. Camera updates paused.");
+                lastCameraLockState = true;
+            }
+
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
             return;
+        }
+
+        if (lastCameraLockState)
+        {
+            Debug.Log("[CameraLock] Camera updates resumed.");
+            lastCameraLockState = false;
         }
 
         Cursor.lockState = CursorLockMode.Locked;
