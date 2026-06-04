@@ -35,6 +35,14 @@ public class LockedPitchThirdPersonController : MonoBehaviour
     {
         controller = GetComponent<CharacterController>();
         anim = GetComponentInChildren<Animator>();
+
+        // 👇 【核心新增】用代码强制关闭动画自带的位移（Root Motion）
+        // 只要这行代码生效，不管动画里带了什么位移，统统会被锁死在原地，完全交由你的 controller.Move 来移动！
+        if (anim != null)
+        {
+            anim.applyRootMotion = false;
+        }
+
         if (playerCamera == null) playerCamera = Camera.main.transform;
 
         Vector3 offset = playerCamera.position - transform.position;
