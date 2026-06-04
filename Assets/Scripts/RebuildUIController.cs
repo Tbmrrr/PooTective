@@ -1,7 +1,7 @@
 using UnityEngine;
 using System.Collections.Generic;
 using System.Collections;
-
+using UnityEngine.SceneManagement;
 [RequireComponent(typeof(CanvasGroup))]
 public class RebuildUIController : MonoBehaviour
 {
@@ -10,6 +10,14 @@ public class RebuildUIController : MonoBehaviour
     public List<EvidenceReceiver> requiredQuizzes = new List<EvidenceReceiver>();
 
     [Header("显现动画设置")]
+    [Header("结局流程")]
+    public CanvasGroup endingPanel;
+
+    public float panelFadeDuration = 2f;
+
+    public float panelStayDuration = 2f;
+
+    public string nextSceneName = "Opening";
     [Tooltip("UI 显现的速度（秒）")]
     public float fadeDuration = 1.0f;
 
@@ -25,6 +33,12 @@ public class RebuildUIController : MonoBehaviour
             canvasGroup.alpha = 0f;
             canvasGroup.interactable = false;
             canvasGroup.blocksRaycasts = false;
+        }
+        if (endingPanel != null)
+        {
+            endingPanel.alpha = 0f;
+            endingPanel.interactable = false;
+            endingPanel.blocksRaycasts = false;
         }
     }
 
@@ -73,10 +87,46 @@ public class RebuildUIController : MonoBehaviour
         }
 
         canvasGroup.alpha = 1f;
-        // 显现后允许交互（如果它是按钮的话）
+
         canvasGroup.interactable = true;
         canvasGroup.blocksRaycasts = true;
 
         Debug.Log($"<color=green>[UI系统]</color> {gameObject.name} 已因 Quiz 全部完成而显现。");
+
+        // 新增
+        StartCoroutine(EndingSequence());
+    }
+
+    private IEnumerator EndingSequence()
+    {
+        if (endingPanel == null)
+        {
+            Debug.LogError("Ending Panel 未指定！");
+            yield break;
+        }
+
+        // ===== 渐显 Panel =====
+
+        float timer = 0f;
+
+        while (timer < panelFadeDuration)
+        {
+            timer += Time.deltaTime;
+
+            endingPanel.alpha =
+                Mathf.Lerp(0f, 1f, timer / panelFadeDuration);
+
+            yield return null;
+        }
+
+        endingPanel.alpha = 1f;
+
+        // ===== 停留 =====
+
+        yield return new WaitForSeconds(panelStayDuration);
+
+        // ===== 切场景 =====
+
+        SceneManager.LoadScene(nextSceneName);
     }
 }
