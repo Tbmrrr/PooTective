@@ -69763,7 +69763,7 @@ MonoBehaviour:
   cameraCollisionRadius: 0.3
   collisionLayers:
     serializedVersion: 2
-    m_Bits: 4294967295
+    m_Bits: 0
   minDistance: 0.5
   recoverySpeed: 5
 --- !u!54 &1306634441
