@@ -98,11 +98,17 @@ public class LockedPitchThirdPersonController : MonoBehaviour
             && NoteManager.Instance.notePanel.activeSelf;
         bool isChoosingOption = NPCInteractable.isChoosingOption;
 
-        if (isDialogueActive || isNoteOpen || isChoosingOption)
+        // ✅ 新增：判断搜索面板是否打开
+        bool isSearchOpen = SearchPanelManager.Instance != null
+            && SearchPanelManager.Instance.searchPanel != null
+            && SearchPanelManager.Instance.searchPanel.activeSelf;
+
+        // ✅ 将 isSearchOpen 加入条件
+        if (isDialogueActive || isNoteOpen || isChoosingOption || isSearchOpen)
         {
             if (!lastCameraLockState)
             {
-                Debug.Log($"[CameraLock] Dialogue:{isDialogueActive} Note:{isNoteOpen} Choose:{isChoosingOption}. Camera updates paused.");
+                Debug.Log($"[CameraLock] UI Active - Camera updates paused.");
                 lastCameraLockState = true;
             }
 
@@ -148,11 +154,16 @@ public class LockedPitchThirdPersonController : MonoBehaviour
 
     void HandleMovement()
     {
-        // ✅ 新增：对话中或笔记本打开时，锁定移动
         bool isDialogueActive = DialogueManager.Instance != null && DialogueManager.Instance.isDialogueActive;
         bool isNoteOpen = NoteManager.Instance != null && NoteManager.Instance.notePanel.activeSelf;
 
-        if (isDialogueActive || isNoteOpen)
+        // ✅ 新增：判断搜索面板是否打开
+        bool isSearchOpen = SearchPanelManager.Instance != null
+            && SearchPanelManager.Instance.searchPanel != null
+            && SearchPanelManager.Instance.searchPanel.activeSelf;
+
+        // ✅ 将 isSearchOpen 加入条件
+        if (isDialogueActive || isNoteOpen || isSearchOpen)
         {
             if (!controller.isGrounded) verticalVelocity -= gravity * Time.deltaTime;
             else verticalVelocity = -2f;

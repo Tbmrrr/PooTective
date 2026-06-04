@@ -8,15 +8,27 @@ public class SearchPanelManager : MonoBehaviour
 {
     public static SearchPanelManager Instance { get; private set; }
 
+    [System.Serializable]
+    public class ClueSlotConfig
+    {
+        [Tooltip("TextMeshPro 文本中对应的 link ID（例如：Link_Fiber）")]
+        public string targetLinkID;
+
+        [Tooltip("A区：场景中已有的图片按钮")]
+        public Button clueButton;
+
+        [Tooltip("A区：对应成功后出现的对应结果图片")]
+        public GameObject successImage;
+    }
+
     [Header("UI 根节点")]
     public GameObject searchPanel;
+    public Button closeButton;
 
-    [Header("A区：线索列表")]
-    public Transform clueListParent;
-    public GameObject clueItemPrefab;
+    [Header("A区：线索绑定配置（直接在面板关联 Link、按钮和结果图）")]
+    public List<ClueSlotConfig> clueSlots = new List<ClueSlotConfig>();
 
-    [Header("B区：搜索输入")]
-    public TMP_InputField searchInputField;
+    [Header("B区：结果显示")]
     public TMP_Text searchResultDisplay;
     public ScrollRect resultScrollRect;
 
@@ -25,29 +37,40 @@ public class SearchPanelManager : MonoBehaviour
     public Image linePrefab;
     public Color highlightColor = Color.yellow;
     public Color successColor = Color.green;
+    // ✨ 新增：公开的线宽控制，默认设为 2（原本硬编码是 5）
+    [Tooltip("连线的宽度/粗细，数值越小线越细")]
+    public float lineWidth = 2f;
 
     [Header("交互控制")]
     [Tooltip("在搜索面板打开时需要禁用的脚本列表")]
     public List<MonoBehaviour> scriptsToDisable = new List<MonoBehaviour>();
 
+    [Header("自定义图片轮播")]
+    public Button customSequenceButton;
+    public GameObject customImage1;
+    public GameObject customImage2;
+    public GameObject customImage3;
+
     private class ClueState
     {
-        public string originalText;
         public string targetLinkID;
         public string resultText;
         public bool isSolved;
-        public GameObject clueUI;
     }
 
-    // 状态存储：证物ID -> 线索列表
     private Dictionary<string, List<ClueState>> allEvidenceStates = new Dictionary<string, List<ClueState>>();
-
     private List<ClueState> currentClueStates = new List<ClueState>();
     private string currentEvidenceID;
 
     private Image activeLine;
     private int selectedClueIndex = -1;
     private Vector2 lineFixedStartPos;
+
+    private int hoveredLinkIndex = -1;
+    private Color32 hoverColor32 = new Color32(173, 109, 74, 255);
+
+    private int currentSequenceIndex = -1;
+    private bool skipFirstClickFrame = false;
 
     private void Awake()
     {
@@ -58,22 +81,91 @@ public class SearchPanelManager : MonoBehaviour
     void Start()
     {
         if (searchPanel != null) searchPanel.SetActive(false);
-        searchInputField.onEndEdit.AddListener(OnSearchSubmit);
+
+        if (closeButton != null)
+        {
+            closeButton.onClick.AddListener(CloseSearchPanel);
+        }
+
+        if (customSequenceButton != null)
+        {
+            customSequenceButton.onClick.AddListener(StartImageSequence);
+        }
+
+        ResetCustomImages();
     }
 
     void Update()
     {
         if (!searchPanel.activeSelf) return;
 
-        // ✅ 修复3：线段跟随鼠标 - 每帧更新，不在HandleLineDrawing中更新
+        if (currentSequenceIndex >= 0)
+        {
+            HandleImageSequence();
+            return;
+        }
+
         if (selectedClueIndex != -1 && activeLine != null)
         {
             UpdateLine(activeLine.rectTransform, lineFixedStartPos, Input.mousePosition);
         }
 
         HandleLineDrawing();
+        UpdateLinkHover();
 
         if (Input.GetMouseButtonDown(1)) CancelSelection();
+    }
+
+    private void StartImageSequence()
+    {
+        if (customImage1 == null || customImage2 == null || customImage3 == null)
+        {
+            Debug.LogWarning("轮播图片未在 Inspector 中配置完整！");
+            return;
+        }
+
+        customImage1.SetActive(true);
+        customImage2.SetActive(false);
+        customImage3.SetActive(false);
+
+        currentSequenceIndex = 0;
+        skipFirstClickFrame = true;
+    }
+
+    private void HandleImageSequence()
+    {
+        if (skipFirstClickFrame)
+        {
+            skipFirstClickFrame = false;
+            return;
+        }
+
+        if (Input.GetMouseButtonDown(0))
+        {
+            currentSequenceIndex++;
+            ResetCustomImages();
+
+            if (currentSequenceIndex == 1)
+            {
+                customImage2.SetActive(true);
+            }
+            else if (currentSequenceIndex == 2)
+            {
+                customImage3.SetActive(true);
+            }
+            else
+            {
+                currentSequenceIndex = -1;
+                Debug.Log("图片轮播播放完毕，关闭所有轮播图。");
+            }
+        }
+    }
+
+    private void ResetCustomImages()
+    {
+        if (customImage1 != null) customImage1.SetActive(false);
+        if (customImage2 != null) customImage2.SetActive(false);
+        if (customImage3 != null) customImage3.SetActive(false);
     }
 
     public void OpenSearchPanel(NoteManager.EvidenceData evidenceData, List<SearchableKeyword> keywords)
@@ -81,7 +173,6 @@ public class SearchPanelManager : MonoBehaviour
         ToggleExternalScripts(false);
         currentEvidenceID = evidenceData.evidenceID;
 
-        // 状态持久化判断
         if (!allEvidenceStates.ContainsKey(currentEvidenceID))
         {
             InitializeClues(evidenceData.desc, keywords);
@@ -92,27 +183,86 @@ public class SearchPanelManager : MonoBehaviour
         }
 
         RefreshClueUI();
-
-        // ✅ 修复2：每次打开都清空搜索结果
-        searchResultDisplay.text = "";
-        searchInputField.text = "";
-
+        ShowDefaultResult();
         searchPanel.SetActive(true);
-        searchInputField.ActivateInputField();
+    }
+
+    private void ShowDefaultResult()
+    {
+        string giraffeText = "<b>饮食：</b>\n" +
+                     "        每天需要摄入大量高纤维、低营养的植物性食物，以合欢树叶、金合欢叶为主食，单日进食量可达30至60公斤。为了满足庞大的能量需求，长颈鹿一天中会花费大量时间进食。此外，水果（如苹果、香蕉）、胡萝卜、南瓜、西瓜等高糖分蔬果，是深受长颈鹿欢迎的零食，通常作为正餐之外的补充。\n\n" +
+                     "<b>排泄情况：</b>\n" +
+                     "<b>排便</b>\n" +
+                     " · 性状：\n" +
+                     "        健康的长颈鹿每天排出大量<link=\"Link_wrong\">颗粒状</link>、质地较为<link=\"Link_Fiber\">干燥紧密</link>的<link=\"Link_Carrot\">深褐色</link><link=\"Link_Fiber\">固体</link>粪球，表面<link=\"Link_wrong\">光滑</link>。\n" +
+                     " · 成分：\n" +
+                     "        粪便中几乎全是未消化的植物纤维，散发<link=\"Link_Sugar\">草料发酵气味</link>，无明显臭味。\n" +
+                     " · 频量：\n" +
+                     "        <link=\"Link_Starvation\">日排泄量可达15公斤左右</link>，排便次数约10至15次。控制能力较弱。\n\n" +
+                     "<b>排尿</b>\n" +
+                     "        排尿次数较少，每天约3至5次，单次尿量很大（一次可排出数升）。与排便不同，长颈鹿对排尿具有较好的主动控制能力，会刻意避开自己睡觉和进食的区域。";
+
+        searchResultDisplay.text = giraffeText;
+        Canvas.ForceUpdateCanvases();
+        resultScrollRect.verticalNormalizedPosition = 1f;
+    }
+
+    private void UpdateLinkHover()
+    {
+        int linkIndex = TMP_TextUtilities.FindIntersectingLink(searchResultDisplay, Input.mousePosition, null);
+
+        if (linkIndex != hoveredLinkIndex)
+        {
+            hoveredLinkIndex = linkIndex;
+            searchResultDisplay.ForceMeshUpdate();
+
+            if (hoveredLinkIndex != -1)
+            {
+                TMP_LinkInfo linkInfo = searchResultDisplay.textInfo.linkInfo[hoveredLinkIndex];
+
+                for (int i = 0; i < linkInfo.linkTextLength; i++)
+                {
+                    int charIndex = linkInfo.linkTextfirstCharacterIndex + i;
+                    TMP_CharacterInfo charInfo = searchResultDisplay.textInfo.characterInfo[charIndex];
+
+                    if (!charInfo.isVisible) continue;
+
+                    int meshIndex = charInfo.materialReferenceIndex;
+                    int vertexIndex = charInfo.vertexIndex;
+
+                    Color32[] vertexColors = searchResultDisplay.textInfo.meshInfo[meshIndex].colors32;
+
+                    vertexColors[vertexIndex + 0] = hoverColor32;
+                    vertexColors[vertexIndex + 1] = hoverColor32;
+                    vertexColors[vertexIndex + 2] = hoverColor32;
+                    vertexColors[vertexIndex + 3] = hoverColor32;
+                }
+                searchResultDisplay.UpdateVertexData(TMP_VertexDataUpdateFlags.Colors32);
+            }
+        }
     }
 
     private void InitializeClues(string fullDesc, List<SearchableKeyword> keywords)
     {
         List<ClueState> newStates = new List<ClueState>();
-        string[] lines = fullDesc.Split(new[] { "\r\n", "\r", "\n" }, System.StringSplitOptions.None);
 
-        for (int i = 0; i < lines.Length; i++)
+        for (int i = 0; i < clueSlots.Count; i++)
         {
-            var state = new ClueState { originalText = lines[i], isSolved = false };
-            if (i < keywords.Count)
+            var slot = clueSlots[i];
+            var state = new ClueState
             {
-                state.targetLinkID = keywords[i].keyword;
-                state.resultText = keywords[i].newDescriptionOnSearch;
+                targetLinkID = slot.targetLinkID,
+                isSolved = false,
+                resultText = ""
+            };
+
+            if (!string.IsNullOrEmpty(slot.targetLinkID) && keywords != null)
+            {
+                var matchedKeyword = keywords.FirstOrDefault(k => k.keyword == slot.targetLinkID);
+                if (matchedKeyword != null)
+                {
+                    state.resultText = matchedKeyword.newDescriptionOnSearch;
+                }
             }
             newStates.Add(state);
         }
@@ -123,35 +273,26 @@ public class SearchPanelManager : MonoBehaviour
 
     private void RefreshClueUI()
     {
-        foreach (Transform child in clueListParent) Destroy(child.gameObject);
-
-        for (int i = 0; i < currentClueStates.Count; i++)
+        for (int i = 0; i < clueSlots.Count; i++)
         {
+            var slot = clueSlots[i];
+            if (slot == null || slot.clueButton == null) continue;
+
             int index = i;
-            GameObject item = Instantiate(clueItemPrefab, clueListParent);
-            currentClueStates[i].clueUI = item;
+            slot.clueButton.onClick.RemoveAllListeners();
+            slot.clueButton.onClick.AddListener(() => OnClueClicked(index));
 
-            TMP_Text txt = item.GetComponentInChildren<TMP_Text>();
-
-            if (currentClueStates[i].isSolved)
+            if (slot.successImage != null)
             {
-                txt.text = currentClueStates[i].resultText;
-                txt.color = successColor;
+                bool isSolved = i < currentClueStates.Count ? currentClueStates[i].isSolved : false;
+                slot.successImage.SetActive(isSolved);
             }
-            else
-            {
-                txt.text = currentClueStates[i].originalText;
-                txt.color = Color.white;
-            }
-
-            Button btn = item.GetComponent<Button>();
-            btn.onClick.AddListener(() => OnClueClicked(index));
         }
     }
 
     private void OnClueClicked(int index)
     {
-        if (currentClueStates[index].isSolved) return;
+        if (index >= currentClueStates.Count || currentClueStates[index].isSolved) return;
 
         if (selectedClueIndex != -1)
         {
@@ -161,14 +302,6 @@ public class SearchPanelManager : MonoBehaviour
         selectedClueIndex = index;
         lineFixedStartPos = Input.mousePosition;
 
-        foreach (var state in currentClueStates)
-        {
-            if (!state.isSolved && state.clueUI != null)
-                state.clueUI.GetComponentInChildren<TMP_Text>().color = Color.white;
-        }
-
-        currentClueStates[index].clueUI.GetComponentInChildren<TMP_Text>().color = highlightColor;
-
         activeLine = Instantiate(linePrefab, lineContainer);
         activeLine.gameObject.SetActive(true);
         activeLine.color = highlightColor;
@@ -177,8 +310,6 @@ public class SearchPanelManager : MonoBehaviour
     private void HandleLineDrawing()
     {
         if (selectedClueIndex == -1 || activeLine == null) return;
-
-        // ✅ 线段更新移到Update中每帧执行
 
         if (Input.GetMouseButtonDown(0))
         {
@@ -193,7 +324,7 @@ public class SearchPanelManager : MonoBehaviour
     private void CheckMatch(string linkID)
     {
         var currentClue = currentClueStates[selectedClueIndex];
-        if (linkID == currentClue.targetLinkID)
+        if (!string.IsNullOrEmpty(currentClue.targetLinkID) && linkID == currentClue.targetLinkID)
         {
             Image lineToFade = activeLine;
             int indexToSolve = selectedClueIndex;
@@ -211,193 +342,47 @@ public class SearchPanelManager : MonoBehaviour
 
     private System.Collections.IEnumerator SuccessEffect(Image line, int index)
     {
-        Debug.Log($"=== SuccessEffect Started === Line: {(line != null ? line.gameObject.name : "NULL")}, Index: {index}");
-        Debug.Log($"Time.timeScale: {Time.timeScale}, GameObject active: {gameObject.activeInHierarchy}");
+        if (line == null) yield break;
 
-        if (line == null)
-        {
-            Debug.LogWarning("Line is null in SuccessEffect - ABORT");
-            yield break;
-        }
-
-        // 立即标记为已解决并更新UI文本
         currentClueStates[index].isSolved = true;
-        Debug.Log($"Marked clue {index} as solved");
 
-        if (currentClueStates[index].clueUI != null)
+        if (index < clueSlots.Count && clueSlots[index].successImage != null)
         {
-            TMP_Text txt = currentClueStates[index].clueUI.GetComponentInChildren<TMP_Text>();
-            txt.text = currentClueStates[index].resultText;
-            txt.color = successColor;
-            Debug.Log($"Updated UI text to: {currentClueStates[index].resultText}");
+            clueSlots[index].successImage.SetActive(true);
         }
 
-        // ✅ 线段变绿
         line.color = successColor;
-        Debug.Log($"Line color changed to green");
-
-        // ✅ 使用 WaitForSecondsRealtime 代替 WaitForSeconds
-        Debug.Log($"Waiting 0.5 seconds before cleanup... (using realtime)");
-        float startTime = Time.realtimeSinceStartup;
         yield return new WaitForSecondsRealtime(0.5f);
-        float endTime = Time.realtimeSinceStartup;
-        Debug.Log($"Wait completed! Actual time: {endTime - startTime}s");
 
-        // ✅ 删除 lineContainer 的所有子物体
-        Debug.Log($"=== Starting Line Cleanup ===");
-        Debug.Log($"LineContainer child count BEFORE: {lineContainer.childCount}");
-
-        int destroyedCount = 0;
         foreach (Transform child in lineContainer)
         {
-            Debug.Log($"Destroying child: {child.gameObject.name}");
             Destroy(child.gameObject);
-            destroyedCount++;
         }
 
-        Debug.Log($"Destroyed {destroyedCount} line objects");
-        Debug.Log($"LineContainer child count AFTER destroy call: {lineContainer.childCount}");
-
-        // 等待一帧后再检查
         yield return null;
-        Debug.Log($"LineContainer child count AFTER one frame: {lineContainer.childCount}");
-
-        Debug.Log($"=== SuccessEffect Completed ===");
         CheckAllComplete();
     }
 
     private void CheckAllComplete()
     {
-        Debug.Log($"CheckAllComplete called. All solved? {currentClueStates.All(s => s.isSolved)}");
-
         if (currentClueStates.All(s => s.isSolved))
         {
-            Debug.Log("=== All clues solved! Updating evidence description ===");
-
             string finalDesc = string.Join("\n", currentClueStates.Select(s => s.resultText));
-            Debug.Log($"Final description: {finalDesc}");
-
-            // ✅ 1. 更新 NoteManager 中存储的数据
             NoteManager.Instance.UpdateEvidenceDescDirectly(currentEvidenceID, finalDesc);
-            Debug.Log($"Called UpdateEvidenceDescDirectly for {currentEvidenceID}");
 
-            // ✅ 2. 更新 Evidence 组件的 description
             Evidence ev = NoteManager.Instance.GetEvidenceComponent(currentEvidenceID);
             if (ev != null)
             {
                 ev.description = finalDesc;
-                ev.SetUpdateFlag(); // 这个会在下次打开时显示红字提示
-                Debug.Log($"Updated Evidence component description");
-            }
-            else
-            {
-                Debug.LogWarning($"Evidence component not found for {currentEvidenceID}");
+                ev.SetUpdateFlag();
             }
 
-            // ✅ 3. 标记搜索完成
             NoteManager.Instance.MarkSearchAsCompleted(currentEvidenceID);
-            Debug.Log($"Marked search as completed for {currentEvidenceID}");
-
-            // ✅ 4. 【关键新增】立即通知 NoteManager 添加"线索更新"红字标记
-            // 这样玩家关闭搜索面板回到背包时，会看到【线索更新】提示
             NoteManager.Instance.UpdateEvidenceInfo(currentEvidenceID, finalDesc);
-            Debug.Log($"Added pending update flag for {currentEvidenceID}");
         }
     }
 
-    private void OnSearchSubmit(string input)
-    {
-        if (string.IsNullOrEmpty(input)) return;
-
-        string result = "未找到相关结果。";
-        string lowerInput = input.ToLower(); // 转换为小写方便匹配
-
-        // 1. 长颈鹿 / 植食 / 排泄
-        if (lowerInput.Contains("长颈鹿") || lowerInput.Contains("植食") || lowerInput.Contains("排泄"))
-        {
-            result = "<b>长颈鹿 植食性动物</b>\n" + "<b>【饮食习惯】</b>\n" +
-                     "每天需摄入大量高纤维、低营养的植物性食物，以合欢树叶为主。单日进食量可达30至60公斤以满足能量需求。\n" +
-                     "此外，水果、胡萝卜、南瓜等高糖分蔬果是深受其欢迎的零食，通常作为正餐之外的补充。\n\n" +
-                     "<b>【排泄情况】</b>\n" +
-                     "<b>1. 排便</b>\n" +
-                     "性状：健康个体排出大量颗粒状、<link=\"Link_Fiber\">较为干燥</link>的<link=\"Link_Carrot\">深褐色</link>固体粪球。\n" +
-                     "成分：粪便中几乎全是未消化的植物纤维，散发<link=\"Link_Sugar\">草料发酵气味</link>，无明显臭味。\n" +
-                     "频量：<link=\"Link_Starvation\">日排泄量可达15公斤左右</link>，排便次数约10至15次。控制能力较弱。\n\n" +
-                     "<b>2. 排尿</b>\n" +
-                     "每天约3至5次，单次尿量很大。长颈鹿对排尿具有较好的主动控制能力，会刻意避开睡觉区域。";
-        }
-        // 2. 乌鸦 / 杂食
-        else if (lowerInput.Contains("乌鸦") || lowerInput.Contains("杂食"))
-        {
-            result = "<b>乌鸦 杂食性动物</b>\n" + "<b>【饮食习惯】</b>\n" +
-                     "以烹煮后的谷物（如米饭、面包）、多种果实（浆果、苹果等）为主，也摄取昆虫制品（如炸蝗虫、蚕蛹）和烹煮过的蛋类。食性杂乱，是动物城中典型的杂食居民。\n\n" +
-                     "<b>【排泄情况】</b>\n" +
-                     "性状：粪便与尿液混合排出，呈液态或半液态，常混有<link=\"Link_UricAcid\">白色尿酸沉淀</link>。气味淡薄，略带酸腐。\n" +
-                     "成分：代谢废物主要以尿酸形式快速排出，以减轻飞行负荷。\n" +
-                     "频量：单次排泄量虽小（每次约数毫升），但全天排泄频繁，每日可达20次以上，日排量少于30克。由于飞行需要减轻体重，对排泄的控制能力较弱，难以主动憋住。";
-        }
-        // 3. 胡萝卜
-        else if (lowerInput.Contains("胡萝卜"))
-        {
-            result = "<b>【百科：胡萝卜】</b>\n" +
-                     "标志性的橙色源自丰富的<link=\"Link_Carotene\">β-胡萝卜素</link>，既可生食也可熟烹，营养价值极高。\n\n" +
-                     "其清甜的味道深受兔类及长颈鹿等植食动物的喜爱。过量摄入会导致体液或排泄物颜色发生<link=\"Link_OrangeSubstance\">暂时性改变</link>。";
-        }
-        // 4. 橙色物质 / 颜色 / 色素
-        else if (lowerInput.Contains("橙色物质") || lowerInput.Contains("橙色") || lowerInput.Contains("色素"))
-        {
-            result = "<b>【成因分析：橙色物质】</b>\n\n" +
-                     "<b>1. 天然食物</b>\n" +
-                     "大量食用胡萝卜、南瓜、甘薯等富含胡萝卜素的蔬果后，未被完全吸收的色素会随粪便排出。兔子小镇的居民对此早已见怪不怪。\n\n" +
-                     "<b>2. 合成色素</b>\n" +
-                     "某些橙色系的食用色素不易被消化，摄入后基本保持原色通过肠道。常见于彩色糖果、果冻、饮料等加工食品。";
-        }
-        // 4. 狒狒
-        else if (lowerInput.Contains("狒狒") || lowerInput.Contains("灵长类"))
-        {
-            result = "<b>狒狒 杂食性动物</b>\n" + "<b>【饮食习惯】</b>\n" +
-                     "以烹煮后的谷物、多种蔬果（苹果、香蕉、胡萝卜）为主，也摄入昆虫制品（如炸蝗虫、蚕蛹罐头）。食性杂乱，是典型的杂食者。\n\n" +
-                     "<b>【排泄情况】</b>\n" +
-                     "<b>1. 排便</b>\n" +
-                     "性状：深褐色短柱状，表面常粘有未消化的<link=\"Link_Fiber\">植物纤维</link>和<link=\"Link_Shell\">昆虫外壳</link>。气味中等偏酸，带发酵果香。\n" +
-                     "频量：日排便3~5次。具有强主动控制能力，会自觉划分功能区。\n\n" +
-                     "<b>2. 排尿</b>\n" +
-                     "尿液清澈，成年雄性气味较浓。可主动憋尿，行为常受<link=\"Link_SocialRank\">社会等级</link>影响。";
-        }
-        // 4. 野猪
-        else if (lowerInput.Contains("野猪") || lowerInput.Contains("山猪"))
-        {
-            result = "<b>野猪 杂食性动物</b>\n" + "<b>【饮食习惯】</b>\n" +
-                     "喜食根茎类蔬菜（土豆、红薯）、蘑菇、豆制品及面包虫干。食量巨大，偏好高纤维餐食。\n\n" +
-                     "<b>【排泄情况】</b>\n" +
-                     "<b>1. 排便</b>\n" +
-                     "性状：深褐至黑色的不规则团块，内含大量<link=\"Link_Mycelium\">菌丝</link>。气味浓烈刺鼻，混有泥土腥臭。\n" +
-                     "频量：日排便6~10次。控制能力较弱，基本随处排泄，但会避开休息区。\n\n" +
-                     "<b>2. 排尿</b>\n" +
-                     "单次尿量大。成年雄性会利用尿液进行<link=\"Link_Marking\">气味标记</link>（如树干、墙角）以争夺地盘。";
-        }
-        // 5. 白猪
-        else if (lowerInput.Contains("白猪") || lowerInput.Contains("家猪"))
-        {
-            result = "<b>白猪 杂食性动物</b>\n" + "<b>【饮食习惯】</b>\n" +
-                     "主要取食谷物（玉米、豆粕），偏爱南瓜、白菜、西瓜皮。是动物城中最常见的大型居民。\n\n" +
-                     "<b>【排泄情况】</b>\n" +
-                     "<b>1. 排便</b>\n" +
-                     "性状：黄褐色软圆柱状或糊状。气味较重，带有明显的<link=\"Link_Ammonia\">氨味</link>。\n" +
-                     "频量：日排便5~8次。极爱干净，能接受<link=\"Link_ToiletTraining\">定点排便训练</link>，但憋便耐力有限。\n\n" +
-                     "<b>2. 排尿</b>\n" +
-                     "尿液淡黄，排尿频繁。在良好的居住环境下会主动区分排泄区。";
-        }
-
-        searchResultDisplay.text = result;
-
-        // 强制更新布局并重置滚动条位置
-        Canvas.ForceUpdateCanvases();
-        resultScrollRect.verticalNormalizedPosition = 1f;
-
-        searchInputField.text = "";
-    }
-
+    // ✅ 修改：现在高度(Y轴)使用的是面板配置的 lineWidth
     private void UpdateLine(RectTransform lineRect, Vector2 startScreenPos, Vector2 endScreenPos)
     {
         RectTransformUtility.ScreenPointToLocalPointInRectangle(lineContainer, startScreenPos, null, out Vector2 localStart);
@@ -406,16 +391,10 @@ public class SearchPanelManager : MonoBehaviour
         Vector2 dir = localEnd - localStart;
         float distance = dir.magnitude;
 
-        // ✅ 修复：设置锚点在左侧（线段起点）
-        lineRect.pivot = new Vector2(0, 0.5f); // 锚点在左边中心
-
-        // ✅ 线段起点位置
+        lineRect.pivot = new Vector2(0, 0.5f);
         lineRect.anchoredPosition = localStart;
+        lineRect.sizeDelta = new Vector2(distance, lineWidth); // 应用新线宽
 
-        // ✅ 线段长度（宽度=距离，高度=粗细）
-        lineRect.sizeDelta = new Vector2(distance, 5f);
-
-        // ✅ 线段旋转角度
         float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
         lineRect.localRotation = Quaternion.Euler(0, 0, angle);
     }
@@ -435,19 +414,18 @@ public class SearchPanelManager : MonoBehaviour
             Destroy(activeLine.gameObject);
             activeLine = null;
         }
-
-        foreach (var state in currentClueStates)
-        {
-            if (!state.isSolved && state.clueUI != null)
-                state.clueUI.GetComponentInChildren<TMP_Text>().color = Color.white;
-        }
     }
 
     public void CloseSearchPanel()
     {
         CancelSelection();
+        hoveredLinkIndex = -1;
         searchPanel.SetActive(false);
         ToggleExternalScripts(true);
+
+        currentSequenceIndex = -1;
+        ResetCustomImages();
+
         NoteManager.Instance.OnSearchPanelClosed(currentEvidenceID);
     }
 
@@ -455,7 +433,16 @@ public class SearchPanelManager : MonoBehaviour
     {
         foreach (var script in scriptsToDisable)
         {
-            if (script != null) script.enabled = isEnabled;
+            if (script != null)
+            {
+                // ✨ 新增：在关闭/开启组件时，精准打印是谁被操作了
+                if (!isEnabled)
+                {
+                    Debug.LogWarning($"【线索追踪】正在禁用物体【{script.gameObject.name}】上的组件【{script.GetType().Name}】", script);
+                }
+
+                script.enabled = isEnabled;
+            }
         }
     }
 }
