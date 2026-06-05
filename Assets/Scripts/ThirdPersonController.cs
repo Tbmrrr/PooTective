@@ -28,6 +28,7 @@ public class LockedPitchThirdPersonController : MonoBehaviour
     private float verticalHeight;
     private float verticalVelocity;
     private float currentDistance;
+    private float targetCameraDistance;
     private bool lastCameraLockState;
     private bool lastSettingsLockState;
 
@@ -36,8 +37,7 @@ public class LockedPitchThirdPersonController : MonoBehaviour
         controller = GetComponent<CharacterController>();
         anim = GetComponentInChildren<Animator>();
 
-        // 👇 【核心新增】用代码强制关闭动画自带的位移（Root Motion）
-        // 只要这行代码生效，不管动画里带了什么位移，统统会被锁死在原地，完全交由你的 controller.Move 来移动！
+        // 用代码强制关闭动画自带的位移（Root Motion）
         if (anim != null)
         {
             anim.applyRootMotion = false;
@@ -49,6 +49,7 @@ public class LockedPitchThirdPersonController : MonoBehaviour
         horizontalDist = new Vector3(offset.x, 0, offset.z).magnitude;
         verticalHeight = offset.y;
         currentDistance = horizontalDist;
+        targetCameraDistance = horizontalDist;
         yaw = playerCamera.eulerAngles.y;
         fixedPitch = playerCamera.eulerAngles.x;
     }
@@ -60,8 +61,7 @@ public class LockedPitchThirdPersonController : MonoBehaviour
             return;
         }
 
-        // 🛑【核心新增】拦截设置面板
-        // 如果 UIManager 单例存在，且设置面板处于打开状态
+        // 拦截设置面板
         if (UIManager.Instance != null && UIManager.Instance.IsSettingsOpen)
         {
             if (!lastSettingsLockState)
@@ -70,13 +70,9 @@ public class LockedPitchThirdPersonController : MonoBehaviour
                 lastSettingsLockState = true;
             }
 
-            // 确保停止移动动画，防止角色卡在跑步姿态
             if (anim != null) anim.SetBool("isWalking", false);
-
-            // 维持重力（防止万一在空中打开设置面板，关闭后坠落出 Bug，或者可以像下面 HandleMovement 一样处理）
             ApplyMenuStaticGravity();
-
-            return; // 🛑 后面所有的 HandleCamera() 和 HandleMovement() 直接被跳过！
+            return;
         }
 
         if (lastSettingsLockState)
@@ -89,7 +85,6 @@ public class LockedPitchThirdPersonController : MonoBehaviour
         HandleMovement();
     }
 
-    // 💡【新增辅助方法】用于在打开设置菜单时，给角色提供基础的重力维持，防止穿地
     private void ApplyMenuStaticGravity()
     {
         if (!controller.isGrounded) verticalVelocity -= gravity * Time.deltaTime;
@@ -106,18 +101,15 @@ public class LockedPitchThirdPersonController : MonoBehaviour
             && NoteManager.Instance.notePanel.activeSelf;
         bool isChoosingOption = NPCInteractable.isChoosingOption;
 
-        // ✅ 新增：判断搜索面板是否打开
         bool isSearchOpen = SearchPanelManager.Instance != null
             && SearchPanelManager.Instance.searchPanel != null
             && SearchPanelManager.Instance.searchPanel.activeSelf;
 
-        // ✅ 将 isSearchOpen 加入条件
         if (isDialogueActive || isNoteOpen || isChoosingOption || isSearchOpen)
         {
             if (!lastCameraLockState)
             {
-                string reason = GetCameraLockReason(isDialogueActive, isNoteOpen, isChoosingOption, isSearchOpen);
-                Debug.Log($"[CameraLock] UI Active - Camera updates paused. Reason: {reason}");
+                Debug.Log("[CameraLock] UI Active - Camera updates paused.");
                 lastCameraLockState = true;
             }
 
@@ -137,50 +129,82 @@ public class LockedPitchThirdPersonController : MonoBehaviour
 
         yaw += Input.GetAxis("Mouse X") * mouseSensitivity;
 
-        Vector3 horizontalOffset = Quaternion.Euler(0, yaw, 0) * Vector3.back * horizontalDist;
-        Vector3 idealCameraPos = transform.position + horizontalOffset;
-        idealCameraPos.y = transform.position.y + verticalHeight;
+        Quaternion camRotation = Quaternion.Euler(0, yaw, 0);
 
-        Vector3 cameraDirection = (idealCameraPos - transform.position).normalized;
-        float targetDistance = horizontalDist;
+        Vector3 rayStart =
+            transform.position + Vector3.up * Mathf.Max(1.6f, verticalHeight);
+
+        Vector3 desiredCameraPos =
+            transform.position
+            + camRotation * Vector3.back * horizontalDist;
+
+        desiredCameraPos.y =
+            transform.position.y + verticalHeight;
+
+        Vector3 direction =
+            (desiredCameraPos - rayStart).normalized;
+
+        float desiredDistance = horizontalDist;
 
         RaycastHit hit;
-        Vector3 rayStart = transform.position + Vector3.up * verticalHeight;
-        if (Physics.SphereCast(rayStart, cameraCollisionRadius, cameraDirection, out hit, horizontalDist, collisionLayers))
+
+        if (Physics.SphereCast(
+            rayStart,
+            cameraCollisionRadius,
+            direction,
+            out hit,
+            horizontalDist,
+            collisionLayers,
+            QueryTriggerInteraction.Ignore))
         {
-            targetDistance = Mathf.Max(hit.distance - cameraCollisionRadius, minDistance);
+            desiredDistance =
+                Mathf.Max(
+                    hit.distance - cameraCollisionRadius,
+                    minDistance);
         }
 
-        currentDistance = Mathf.Lerp(currentDistance, targetDistance, Time.deltaTime * recoverySpeed);
+        // 撞墙立即收缩
+        if (desiredDistance < targetCameraDistance)
+        {
+            targetCameraDistance = desiredDistance;
+        }
+        // 离墙慢慢恢复
+        else
+        {
+            targetCameraDistance = Mathf.Lerp(
+                targetCameraDistance,
+                desiredDistance,
+                Time.deltaTime * 2f);
+        }
 
-        Vector3 finalOffset = Quaternion.Euler(0, yaw, 0) * Vector3.back * currentDistance;
-        Vector3 finalCameraPos = transform.position + finalOffset;
-        finalCameraPos.y = transform.position.y + verticalHeight;
+        // 最终平滑
+        currentDistance = Mathf.Lerp(
+            currentDistance,
+            targetCameraDistance,
+            Time.deltaTime * 12f);
+
+        Vector3 finalCameraPos =
+            transform.position
+            + camRotation * Vector3.back * currentDistance;
+
+        finalCameraPos.y =
+            transform.position.y + verticalHeight;
 
         playerCamera.position = finalCameraPos;
-        playerCamera.rotation = Quaternion.Euler(fixedPitch, yaw, 0);
-    }
-
-    private string GetCameraLockReason(bool isDialogueActive, bool isNoteOpen, bool isChoosingOption, bool isSearchOpen)
-    {
-        if (isDialogueActive) return "Dialogue";
-        if (isNoteOpen) return "Note";
-        if (isChoosingOption) return "NPC Options";
-        if (isSearchOpen) return "Search";
-        return "Unknown";
+        playerCamera.rotation = Quaternion.Euler(
+            fixedPitch,
+            yaw,
+            0);
     }
 
     void HandleMovement()
     {
         bool isDialogueActive = DialogueManager.Instance != null && DialogueManager.Instance.isDialogueActive;
         bool isNoteOpen = NoteManager.Instance != null && NoteManager.Instance.notePanel.activeSelf;
-
-        // ✅ 新增：判断搜索面板是否打开
         bool isSearchOpen = SearchPanelManager.Instance != null
             && SearchPanelManager.Instance.searchPanel != null
             && SearchPanelManager.Instance.searchPanel.activeSelf;
 
-        // ✅ 将 isSearchOpen 加入条件
         if (isDialogueActive || isNoteOpen || isSearchOpen)
         {
             if (!controller.isGrounded) verticalVelocity -= gravity * Time.deltaTime;
