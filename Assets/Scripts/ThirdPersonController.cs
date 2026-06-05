@@ -116,7 +116,8 @@ public class LockedPitchThirdPersonController : MonoBehaviour
         {
             if (!lastCameraLockState)
             {
-                Debug.Log($"[CameraLock] UI Active - Camera updates paused.");
+                string reason = GetCameraLockReason(isDialogueActive, isNoteOpen, isChoosingOption, isSearchOpen);
+                Debug.Log($"[CameraLock] UI Active - Camera updates paused. Reason: {reason}");
                 lastCameraLockState = true;
             }
 
@@ -158,6 +159,15 @@ public class LockedPitchThirdPersonController : MonoBehaviour
 
         playerCamera.position = finalCameraPos;
         playerCamera.rotation = Quaternion.Euler(fixedPitch, yaw, 0);
+    }
+
+    private string GetCameraLockReason(bool isDialogueActive, bool isNoteOpen, bool isChoosingOption, bool isSearchOpen)
+    {
+        if (isDialogueActive) return "Dialogue";
+        if (isNoteOpen) return "Note";
+        if (isChoosingOption) return "NPC Options";
+        if (isSearchOpen) return "Search";
+        return "Unknown";
     }
 
     void HandleMovement()
