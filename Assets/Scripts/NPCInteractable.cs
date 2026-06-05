@@ -73,6 +73,8 @@ public class NPCInteractable : MonoBehaviour
 
     private bool isPlayerInRange = false;
 
+    private float choosingTimer = 0f;
+
     // ✅ 全局标志：玩家正在选择对话选项（按下E后、选1/2前）
     public static bool isChoosingOption = false;
 
@@ -90,6 +92,22 @@ public class NPCInteractable : MonoBehaviour
 
     void Update()
     {
+        if (isChoosingOption)
+        {
+            choosingTimer += Time.deltaTime;
+
+            if (choosingTimer > 10f)
+            {
+                Debug.LogError("[NPCInteractable] Choosing timeout. Force reset.");
+                isChoosingOption = false;
+                isWaitingForChoice = false;
+                choosingTimer = 0f;
+            }
+        }
+        else
+        {
+            choosingTimer = 0f;
+        }
         if (isWaitingForChoice)
         {
             // 键盘

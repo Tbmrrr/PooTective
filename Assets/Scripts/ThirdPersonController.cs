@@ -31,7 +31,11 @@ public class LockedPitchThirdPersonController : MonoBehaviour
     private float targetCameraDistance;
     private bool lastCameraLockState;
     private bool lastSettingsLockState;
-
+    // 在其他 private 变量附近添加
+    private float cameraStuckTimer = 0f;
+    // ===== 新增 =====
+    private float uiLockTimer = 0f;
+    private const float UILockWarningTime = 30f;
     void Start()
     {
         controller = GetComponent<CharacterController>();
@@ -52,10 +56,43 @@ public class LockedPitchThirdPersonController : MonoBehaviour
         targetCameraDistance = horizontalDist;
         yaw = playerCamera.eulerAngles.y;
         fixedPitch = playerCamera.eulerAngles.x;
+        // 👇 【保底方案一】用代码自动剔除主角自身的 Layer，防止射线打到自己
+        int playerLayer = gameObject.layer;
+        collisionLayers &= ~(1 << playerLayer);
+
+        // 如果你的角色模型、骨骼在子物体上，且用了不同的 Layer（比如叫 "Model" 或 "Player"），也一并剔除
+        foreach (Transform child in GetComponentsInChildren<Transform>())
+        {
+            collisionLayers &= ~(1 << child.gameObject.layer);
+        }
     }
 
     void Update()
     {
+        if (Input.GetKeyDown(KeyCode.F10))
+        {
+            NPCInteractable.isChoosingOption = false;
+
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+
+            Debug.Log("Emergency Camera Recovery");
+        }
+        // 相机丢失自动重连
+        if (playerCamera == null)
+        {
+            Camera cam = Camera.main;
+
+            if (cam != null)
+            {
+                playerCamera = cam.transform;
+                Debug.LogWarning("[Camera] Main Camera reconnected.");
+            }
+            else
+            {
+                return;
+            }
+        }
         if (RebuildModeManager.Instance != null && RebuildModeManager.Instance.isRebuildModeActive)
         {
             return;
@@ -95,6 +132,7 @@ public class LockedPitchThirdPersonController : MonoBehaviour
 
     void HandleCamera()
     {
+        
         bool isDialogueActive = DialogueManager.Instance != null && DialogueManager.Instance.isDialogueActive;
         bool isNoteOpen = NoteManager.Instance != null
             && NoteManager.Instance.notePanel != null
@@ -104,9 +142,32 @@ public class LockedPitchThirdPersonController : MonoBehaviour
         bool isSearchOpen = SearchPanelManager.Instance != null
             && SearchPanelManager.Instance.searchPanel != null
             && SearchPanelManager.Instance.searchPanel.activeSelf;
-
+        if (Input.GetKeyDown(KeyCode.F8))
+        {
+            Debug.Log(
+                $"Dialogue={isDialogueActive} | " +
+                $"Note={isNoteOpen} | " +
+                $"Choosing={isChoosingOption} | " +
+                $"Search={isSearchOpen}");
+        }
         if (isDialogueActive || isNoteOpen || isChoosingOption || isSearchOpen)
         {
+            // UI锁定计时
+            uiLockTimer += Time.deltaTime;
+
+            // 超过30秒仍然处于UI状态，打印详细信息
+            if (uiLockTimer > UILockWarningTime)
+            {
+                Debug.LogError(
+                    $"[Camera] UI lock timeout! " +
+                    $"Dialogue={isDialogueActive}, " +
+                    $"Note={isNoteOpen}, " +
+                    $"Choosing={isChoosingOption}, " +
+                    $"Search={isSearchOpen}");
+
+                uiLockTimer = 0f;
+            }
+
             if (!lastCameraLockState)
             {
                 Debug.Log("[CameraLock] UI Active - Camera updates paused.");
@@ -117,7 +178,7 @@ public class LockedPitchThirdPersonController : MonoBehaviour
             Cursor.visible = true;
             return;
         }
-
+        uiLockTimer = 0f;
         if (lastCameraLockState)
         {
             Debug.Log("[CameraLock] Camera updates resumed.");
@@ -128,7 +189,11 @@ public class LockedPitchThirdPersonController : MonoBehaviour
         Cursor.visible = false;
 
         yaw += Input.GetAxis("Mouse X") * mouseSensitivity;
-
+        if (float.IsNaN(yaw))
+        {
+            Debug.LogError("[Camera] Yaw became NaN. Resetting.");
+            yaw = transform.eulerAngles.y;
+        }
         Quaternion camRotation = Quaternion.Euler(0, yaw, 0);
 
         Vector3 rayStart =
@@ -182,7 +247,17 @@ public class LockedPitchThirdPersonController : MonoBehaviour
             currentDistance,
             targetCameraDistance,
             Time.deltaTime * 12f);
+        if (float.IsNaN(currentDistance))
+        {
+            Debug.LogError("[Camera] Distance became NaN. Resetting.");
+            currentDistance = horizontalDist;
+        }
 
+        if (float.IsNaN(targetCameraDistance))
+        {
+            Debug.LogError("[Camera] TargetDistance became NaN. Resetting.");
+            targetCameraDistance = horizontalDist;
+        }
         Vector3 finalCameraPos =
             transform.position
             + camRotation * Vector3.back * currentDistance;
@@ -239,6 +314,46 @@ public class LockedPitchThirdPersonController : MonoBehaviour
         if (anim != null)
         {
             anim.SetBool("isWalking", inputDir.magnitude >= 0.1f);
+        }
+    }
+    private void OnApplicationFocus(bool hasFocus)
+    {
+        if (!hasFocus)
+            return;
+
+        bool isDialogueActive =
+            DialogueManager.Instance != null &&
+            DialogueManager.Instance.isDialogueActive;
+
+        bool isSearchOpen =
+            SearchPanelManager.Instance != null &&
+            SearchPanelManager.Instance.searchPanel != null &&
+            SearchPanelManager.Instance.searchPanel.activeSelf;
+
+        bool isNoteOpen =
+            NoteManager.Instance != null &&
+            NoteManager.Instance.notePanel != null &&
+            NoteManager.Instance.notePanel.activeSelf;
+
+        if (!isDialogueActive &&
+            !isSearchOpen &&
+            !isNoteOpen)
+        {
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+
+            Debug.Log("[Camera] Focus restored. Cursor relocked.");
+        }
+    }
+    private void LateUpdate()
+    {
+        if (playerCamera == null)
+            return;
+
+        if (!playerCamera.gameObject.activeInHierarchy)
+        {
+            Debug.LogWarning("[Camera] Camera was disabled. Re-enabling.");
+            playerCamera.gameObject.SetActive(true);
         }
     }
 }

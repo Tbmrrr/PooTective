@@ -44380,7 +44380,6 @@ GameObject:
   - component: {fileID: 792370182}
   - component: {fileID: 792370185}
   - component: {fileID: 792370184}
-  - component: {fileID: 792370183}
   m_Layer: 7
   m_Name: PressE
   m_TagString: Untagged
@@ -44407,18 +44406,6 @@ RectTransform:
   m_AnchoredPosition: {x: 5.0995393, y: 50.000004}
   m_SizeDelta: {x: 875, y: 196}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &792370183
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 792370181}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 467f97138aa549642b343638d6cc73b8, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!114 &792370184
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -45786,7 +45773,6 @@ GameObject:
   - component: {fileID: 816415659}
   - component: {fileID: 816415662}
   - component: {fileID: 816415661}
-  - component: {fileID: 816415660}
   m_Layer: 7
   m_Name: PressE
   m_TagString: Untagged
@@ -45813,18 +45799,6 @@ RectTransform:
   m_AnchoredPosition: {x: 5.0995393, y: 50.000004}
   m_SizeDelta: {x: 1166, y: 190}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &816415660
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 816415658}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 467f97138aa549642b343638d6cc73b8, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!114 &816415661
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -85786,7 +85760,6 @@ GameObject:
   - component: {fileID: 1542221082}
   - component: {fileID: 1542221085}
   - component: {fileID: 1542221084}
-  - component: {fileID: 1542221083}
   m_Layer: 7
   m_Name: PressE
   m_TagString: Untagged
@@ -85813,18 +85786,6 @@ RectTransform:
   m_AnchoredPosition: {x: 5.0995393, y: 50.000004}
   m_SizeDelta: {x: 1166, y: 190}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &1542221083
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1542221081}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 467f97138aa549642b343638d6cc73b8, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!114 &1542221084
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -93500,7 +93461,6 @@ GameObject:
   - component: {fileID: 1669338437}
   - component: {fileID: 1669338440}
   - component: {fileID: 1669338439}
-  - component: {fileID: 1669338438}
   m_Layer: 7
   m_Name: PressE
   m_TagString: Untagged
@@ -93527,18 +93487,6 @@ RectTransform:
   m_AnchoredPosition: {x: -5.8995037, y: 50.00282}
   m_SizeDelta: {x: 1046, y: 202}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &1669338438
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1669338436}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 467f97138aa549642b343638d6cc73b8, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!114 &1669338439
 MonoBehaviour:
   m_ObjectHideFlags: 0
