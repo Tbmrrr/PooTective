@@ -131,6 +131,16 @@ public class NPCInteractable : MonoBehaviour
         }
     }
 
+    private void OnDisable()
+    {
+        ForceReleaseInteraction("OnDisable");
+    }
+
+    private void OnDestroy()
+    {
+        ForceReleaseInteraction("OnDestroy");
+    }
+
     private void OnTriggerEnter(Collider other)
     {
         if (other.CompareTag("Player") && !DialogueManager.Instance.isDialogueActive)
@@ -307,6 +317,24 @@ public class NPCInteractable : MonoBehaviour
         isWaitingForChoice = false;
         isDialogueJustFinished = false;
         SetPlayerMovement(true);
+        if (pressEPrompt != null) pressEPrompt.SetActive(false);
+        if (optionsMenu != null) optionsMenu.SetActive(false);
+        if (npcNameUI != null) npcNameUI.SetActive(false);
+    }
+
+    private void ForceReleaseInteraction(string reason)
+    {
+        if (!isChoosingOption && !isWaitingForChoice && !isDialogueJustFinished)
+        {
+            return;
+        }
+
+        Debug.LogWarning($"[NPCInteractable] ForceReleaseInteraction triggered by {reason} on {name}");
+
+        isChoosingOption = false;
+        isWaitingForChoice = false;
+        isDialogueJustFinished = false;
+
         if (pressEPrompt != null) pressEPrompt.SetActive(false);
         if (optionsMenu != null) optionsMenu.SetActive(false);
         if (npcNameUI != null) npcNameUI.SetActive(false);
